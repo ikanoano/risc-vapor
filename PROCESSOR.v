@@ -11,12 +11,12 @@ module PROCESSOR (
   input   wire[32-1:0]  imem_rdata,
   input   wire          imem_ready,
 
-  output  wire[32-1:0]  dmem_addr,
-  output  wire          dmem_oe,
-  output  wire[32-1:0]  dmem_wdata,
-  output  wire[ 4-1:0]  dmem_we,
-  input   wire[32-1:0]  dmem_rdata,
-  input   wire          dmem_ready
+  output  wire[32-1:0]  mem_addr,
+  output  wire          mem_oe,
+  output  wire[32-1:0]  mem_wdata,
+  output  wire[ 4-1:0]  mem_we,
+  input   wire[32-1:0]  mem_rdata,
+  input   wire          mem_ready
 );
 localparam IF = 0, ID = 1, EM = 2, WB = 3;
 
@@ -30,9 +30,9 @@ wire[32-1:0]  ir[ID:WB];    // Instruction Registers
 reg [32-1:0]  pc[IF:WB];    // Program Counters
 
 reg [32-1:0]  _ir[EM:WB];
-reg           prev_bflush;
-reg [WB:IF]   prev_stall;
-reg [WB:IF]   prev_insertb;
+reg           prev_bflush;  // bflush in last cycle
+reg [WB:IF]   prev_stall;   // stall in last cycle
+reg [WB:IF]   prev_insertb; // insertb in last cycle
 
 integer i;
 always @(posedge clk) begin
@@ -71,7 +71,7 @@ always @(posedge clk) prev_insertb  <= insertb;
 // imem I/F
 wire    imem_miss;
 assign  imem_addr     = pc[IF][0+:16];
-assign  imem_oe       = !stall[IF] || imem_miss;
+assign  imem_oe       = !stall[IF];
 assign  stall_req[IF] = 1'b0;
 
 // Instruction Decode stage ========================================
@@ -102,14 +102,14 @@ end
 
 wire[5-1:0]   rd_em=RD(ir[EM]), rs1_id=RS1(ir[ID]), rs2_id=RS2(ir[ID]);
 
-reg     prev_imem_oe=1'b0;
-always @(posedge clk) if(!prev_stall[ID]) prev_imem_oe <= imem_oe;
-assign  imem_miss = prev_imem_oe & !imem_ready;
+reg     prev_imem_read=1'b0;
+always @(posedge clk) if(!imem_miss) prev_imem_read <= imem_oe;
+assign  imem_miss = prev_imem_read & !imem_ready;
 
 // stall if (ir[ID] is not ready) or (source operand is still in EM stage)
 // TUNE: deal with the case where rs2 or rs1 is not used
-assign  stall_req[ID] = imem_miss ||
-  (GPRWE(ir[EM]) && (rd_em==rs1_id || rd_em==rs2_id));
+assign  stall_req[ID] = !rst && (imem_miss ||
+  (GPRWE(ir[EM]) && (rd_em==rs1_id || rd_em==rs2_id)));
 
 // Execute and Memory access stage ========================================
 wire[ 5-1:0]  op_em = OPCODE(ir[EM]);
@@ -155,26 +155,29 @@ wire  btaken  = op_em==`JAL || op_em==`JALR || (op_em==`BRANCH & (
                           1'bx));
 wire  bflush  = btaken && pc[ID]!=btarget;
 
-// dmem I/F
-assign  dmem_addr     = rrs1 + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-assign  dmem_oe       = MEMOE(ir[EM]);
-assign  dmem_wdata    = rrs2;
-assign  dmem_we       = MEMWE(ir[EM]);
+// mem I/F
+assign  mem_addr      = rrs1 + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
+assign  mem_oe        = MEMOE(ir[EM]);
+assign  mem_wdata     = rrs2;
+assign  mem_we        = MEMWE(ir[EM]);
 
 assign  stall_req[EM] = 1'b0;
 
 // Write Back stage ========================================
 assign  rrd           =
-  sel_dmem  ? dmem_rdata :
+  sel_dmem  ? mem_rdata :
   sel_urslt ? urslt :
   sel_jrslt ? jrslt :
               rslt;
 
-reg     prev_dmem_oe=1'b0;
-always @(posedge clk) if(!prev_stall[WB]) prev_dmem_oe <= dmem_oe;
+reg     prev_dmem_read=1'b0;
+always @(posedge clk) prev_dmem_read <=
+  rst         ? 1'b0 :
+  !dmem_miss  ? mem_oe && !mem_we[0] :
+                1'b1;//==prev_dmem_read;
 
-wire    dmem_miss = prev_dmem_oe & !dmem_ready;
-assign  stall_req[WB] = dmem_miss;
+wire    dmem_miss = prev_dmem_read & !mem_ready;
+assign  stall_req[WB] = !rst && dmem_miss;
 
 
 
