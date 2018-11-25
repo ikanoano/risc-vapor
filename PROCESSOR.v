@@ -30,9 +30,9 @@ wire[32-1:0]  ir[ID:WB];    // Instruction Registers
 reg [32-1:0]  pc[IF:WB];    // Program Counters
 
 reg [32-1:0]  _ir[EM:WB];
-reg           prev_bflush;  // bflush in last cycle
-reg [WB:IF]   prev_stall;   // stall in last cycle
-reg [WB:IF]   prev_insertb; // insertb in last cycle
+reg           prev_bflush=0;  // bflush in last cycle
+reg [WB:IF]   prev_stall=0;   // stall in last cycle
+reg [WB:IF]   prev_insertb=0; // insertb in last cycle
 
 integer i;
 always @(posedge clk) begin
@@ -54,7 +54,7 @@ always @(posedge clk) begin
 end
 
 generate genvar gi;
-  // Because imem has 1-cycle latency, we have to set ir[ID] after imem is ready
+  // Because imem has 1-cycle latency, we have to set ir[ID] after rdata is ready
   assign  ir[ID]  =
     rst                       ? `NOP        :
     prev_bflush               ? `NOP        :

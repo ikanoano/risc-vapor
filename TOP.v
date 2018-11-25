@@ -44,7 +44,7 @@ end
 wire[16-1:0]  imem_addr;
 wire          imem_oe;
 wire[32-1:0]  imem_rdata;
-reg           imem_ready;
+reg           imem_ready=0;
 
 wire[32-1:0]  mem_addr;
 wire          mem_oe;
