@@ -219,4 +219,22 @@ function[ 4-1:0]  MEMWE (input[32-1:0] inst); MEMWE  =  // dmem write enable
                           4'bxxxx;
 endfunction
 
+function[ 1-1:0]  USERD (input[32-1:0] inst); USERD  =
+  OPCODE(inst)!=`STORE  &&
+  OPCODE(inst)!=`BRANCH;
+endfunction
+function[ 1-1:0]  USERS1(input[32-1:0] inst); USERS1 =
+  OPCODE(inst)!=`AUIPC  &&
+  OPCODE(inst)!=`LUI    &&
+  OPCODE(inst)!=`JAL;
+endfunction
+function[ 1-1:0]  USERS2(input[32-1:0] inst); USERS2 =
+  OPCODE(inst)==`STORE  ||
+  OPCODE(inst)==`OP     ||
+  OPCODE(inst)==`BRANCH;
+endfunction
+function[ 1-1:0]  USEIMM(input[32-1:0] inst); USEIMM =
+  OPCODE(inst)!=`OP;
+endfunction
+
 endmodule

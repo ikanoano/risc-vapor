@@ -78,14 +78,19 @@ initial begin
 end
 
 // trace output
+localparam[8-1:0] SPACE = " ";
 generate if(TRACE) begin
-  reg [5*8-1:0] opstr;
-  reg [4*8-1:0] f3str;
-  reg [ 32-1:0] ir;
-  reg [  5-1:0] opcode;
-  reg [  3-1:0] funct3;
-  reg [  7-1:0] funct7;
-  reg [ 32-1:0] imm;
+  reg [  32-1:0]  ir;
+  reg [   5-1:0]  opcode;
+  reg [   3-1:0]  funct3;
+  reg [   7-1:0]  funct7;
+  reg [  32-1:0]  imm;
+  reg [ 5*8-1:0]  opstr;
+  reg [ 4*8-1:0]  f3str;
+  reg [ 3*8-1:0]  rdstr;
+  reg [14*8-1:0]  rs1str;
+  reg [14*8-1:0]  rs2str;
+  reg [14*8-1:0]  immstr;
   always @(posedge clk) begin
     ir      = p.ir[p.EM];
     opcode  = p.OPCODE(ir);
@@ -93,62 +98,109 @@ generate if(TRACE) begin
     funct7  = p.FUNCT7(ir);
     imm     = p.IMM(ir);
     opstr =
-      ir==`NOP        ? "NOP"   :
-      opcode==`LOAD   ? "LOAD"  :
-      opcode==`STORE  ? "STORE" :
-      opcode==`OPIMM  ? "OPIMM" :
-      opcode==`OP     ? "OP"    :
-      opcode==`AUIPC  ? "AUIPC" :
-      opcode==`LUI    ? "LUI"   :
-      opcode==`BRANCH ? "BRNCH" :
-      opcode==`JALR   ? "JALR"  :
-      opcode==`JAL    ? "JAL"   :
-                        "UNK";
+      ir==`NOP        ? "nop"   :
+      opcode==`LOAD   ? "load"  :
+      opcode==`STORE  ? "store" :
+      opcode==`OPIMM  ? "opimm" :
+      opcode==`OP     ? "op"    :
+      opcode==`AUIPC  ? "auipc" :
+      opcode==`LUI    ? "lui"   :
+      opcode==`BRANCH ? "brnch" :
+      opcode==`JALR   ? "jalr"  :
+      opcode==`JAL    ? "jal"   :
+                        "unk";
     f3str =
       ir==`NOP        ? "-"   :
       opcode==`BRANCH ? (
-        funct3==`BEQ    ? "BEQ"   :
-        funct3==`BNE    ? "BNE"   :
-        funct3==`BLT    ? "BLT"   :
-        funct3==`BGE    ? "BGE"   :
-        funct3==`BLTU   ? "BLTU"  :
-        funct3==`BGEU   ? "BGEU"  :
-                          "UNK")    :
+        funct3==`BEQ    ? "beq"   :
+        funct3==`BNE    ? "bne"   :
+        funct3==`BLT    ? "blt"   :
+        funct3==`BGE    ? "bge"   :
+        funct3==`BLTU   ? "bltu"  :
+        funct3==`BGEU   ? "bgeu"  :
+                          "unk")    :
       opcode==`LOAD   ? (
-        funct3==`LB     ? "LB"    :
-        funct3==`LH     ? "LH"    :
-        funct3==`LW     ? "LW"    :
-        funct3==`LBU    ? "LBU"   :
-        funct3==`LHU    ? "LHU"   :
-                          "UNK")    :
+        funct3==`LB     ? "lb"    :
+        funct3==`LH     ? "lh"    :
+        funct3==`LW     ? "lw"    :
+        funct3==`LBU    ? "lbu"   :
+        funct3==`LHU    ? "lhu"   :
+                          "unk")    :
       opcode==`STORE  ? (
-        funct3==`SB     ? "SB"    :
-        funct3==`SH     ? "SH"    :
-        funct3==`SW     ? "SW"    :
-                          "UNK")    :
+        funct3==`SB     ? "sb"    :
+        funct3==`SH     ? "sh"    :
+        funct3==`SW     ? "sw"    :
+                          "unk")    :
       opcode==`OPIMM || opcode==`OP ? (
-        funct3==`ADD    ? (opcode[3]&&funct7[5] ? "SUB" : "ADD"):
-        funct3==`SLL    ? "SLL"   :
-        funct3==`SLT    ? "SLT"   :
-        funct3==`SLTU   ? "SLTU"  :
-        funct3==`XOR    ? "XOR"   :
-        funct3==`SRL    ? (funct7[5]==`SRL7 ? "SRL" : "SRA"):
-        funct3==`OR     ? "OR"    :
-        funct3==`AND    ? "AND"   :
-                          "UNK")    :
+        funct3==`ADD    ? (opcode[3]&&funct7[5] ? "sub" : "add"):
+        funct3==`SLL    ? "sll"   :
+        funct3==`SLT    ? "slt"   :
+        funct3==`SLTU   ? "sltu"  :
+        funct3==`XOR    ? "xor"   :
+        funct3==`SRL    ? (funct7[5]==`SRL7 ? "srl" : "sra"):
+        funct3==`OR     ? "or"    :
+        funct3==`AND    ? "and"   :
+                          "unk")    :
                         "-";
 
+    if(ir!=`NOP && p.USERD(ir))   $sformat(rdstr, "%s", REGNAME(p.RD(ir)));
+    else                          rdstr = {3{SPACE}};
+    if(ir!=`NOP && p.USERS1(ir))  $sformat(rs1str, "%s(h%x)", REGNAME(p.RS1(ir)), p.rrs1);
+    else                          rs1str = {3+3+8{SPACE}};
+    if(ir!=`NOP && p.USERS2(ir))  $sformat(rs2str, "%s(h%x)", REGNAME(p.RS2(ir)), p.rrs2);
+    else                          rs2str = {3+3+8{SPACE}};
+    if(ir!=`NOP && p.USEIMM(ir))  $sformat(immstr, "imm(h%x)", p.IMM(ir));
+    else                          immstr = {3+3+8{SPACE}};
+
     $write(
-      "h%x h%x : %s %s x%02d x%02d(h%x) x%02d(h%x) imm=h%x s=%b",
-      p.pc[p.EM][0+:16+2], ir, opstr, f3str,
-      p.RD(ir), p.RS1(ir), p.rrs1, p.RS2(ir), p.rrs2,
-      p.IMM(ir), p.prev_stall);
+    // pc:inst op f3 rd rs1 rs2 imm | stall
+      "h%x: h%x %s %s %s %s %s %s | s(%b)",
+      p.pc[p.EM][0+:16], ir, opstr, f3str,
+      rdstr, rs1str, rs2str, immstr,
+      p.prev_stall);
     if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL)
       $write(" b(h%x, taken=%b, flush=%b)", p.btarget[0+:16+2], p.btaken, p.bflush);
     if(mem_oe && !mem_we) $write(" dmem[h%x]",      mem_addr);
     if(mem_oe &&  mem_we) $write(" dmem[h%x]<-h%x", mem_addr, mem_wdata);
     $display("");
   end
+
+  function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =
+    //                      Saver   Description
+    r===5'd00 ? "  0" : //          Hard-wired zero
+    r===5'd01 ? " ra" : //  Caller  Return address
+    r===5'd02 ? " sp" : //  Callee  Stack pointer
+    r===5'd03 ? " gp" : //          Global pointer
+    r===5'd04 ? " tp" : //          Thread pointer
+    r===5'd05 ? " t0" : //  Caller  Temporaries
+    r===5'd06 ? " t1" : //  Caller  "
+    r===5'd07 ? " t2" : //  Caller  "
+    r===5'd08 ? " s0" : //  Callee  Saved register / frame pointer
+    r===5'd09 ? " s1" : //  Callee  Saved register
+    r===5'd10 ? " a0" : //  Caller  Function arguments / return values
+    r===5'd11 ? " a1" : //  Caller  "
+    r===5'd12 ? " a2" : //  Caller  Function arguments
+    r===5'd13 ? " a3" : //  Caller  "
+    r===5'd14 ? " a4" : //  Caller  "
+    r===5'd15 ? " a5" : //  Caller  "
+    r===5'd16 ? " a6" : //  Caller  "
+    r===5'd17 ? " a7" : //  Caller  "
+    r===5'd18 ? " s2" : //  Callee  Saved registers
+    r===5'd19 ? " s3" : //  Callee  "
+    r===5'd20 ? " s4" : //  Callee  "
+    r===5'd21 ? " s5" : //  Callee  "
+    r===5'd22 ? " s6" : //  Callee  "
+    r===5'd23 ? " s7" : //  Callee  "
+    r===5'd24 ? " s8" : //  Callee  "
+    r===5'd25 ? " s9" : //  Callee  "
+    r===5'd26 ? "s10" : //  Callee  "
+    r===5'd27 ? "s11" : //  Callee  "
+    r===5'd28 ? " t3" : //  Caller  Temporaries
+    r===5'd29 ? " t4" : //  Caller  "
+    r===5'd30 ? " t5" : //  Caller  "
+    r===5'd31 ? " t6" : //  Caller  "
+                "???";
+  endfunction
 end endgenerate
 
 PROCESSOR p (
