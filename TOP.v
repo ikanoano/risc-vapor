@@ -80,18 +80,26 @@ end
 // trace output
 localparam[8-1:0] SPACE = " ";
 generate if(TRACE) begin
+  reg [  16-1:0]  pc;
   reg [  32-1:0]  ir;
   reg [   5-1:0]  opcode;
   reg [   3-1:0]  funct3;
   reg [   7-1:0]  funct7;
   reg [  32-1:0]  imm;
+
   reg [ 5*8-1:0]  opstr;
   reg [ 4*8-1:0]  f3str;
   reg [ 3*8-1:0]  rdstr;
   reg [14*8-1:0]  rs1str;
   reg [14*8-1:0]  rs2str;
   reg [14*8-1:0]  immstr;
+  reg [32*8-1:0]  branchstr;
+  reg [32*8-1:0]  memstr;
+  reg [32*8-1:0]  stallstr;
+  reg [256*8-1:0] str_em="";
+  reg [32*8-1:0]  wbstr;
   always @(posedge clk) begin
+    pc      = p.pc[p.EM][0+:16];
     ir      = p.ir[p.EM];
     opcode  = p.OPCODE(ir);
     funct3  = p.FUNCT3(ir);
@@ -151,18 +159,31 @@ generate if(TRACE) begin
     else                          rs2str = {3+3+8{SPACE}};
     if(ir!=`NOP && p.USEIMM(ir))  $sformat(immstr, "imm(h%x)", p.IMM(ir));
     else                          immstr = {3+3+8{SPACE}};
-
-    $write(
-    // pc:inst op f3 rd rs1 rs2 imm | stall
-      "h%x: h%x %s %s %s %s %s %s | s(%b)",
-      p.pc[p.EM][0+:16], ir, opstr, f3str,
-      rdstr, rs1str, rs2str, immstr,
-      p.prev_stall);
     if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL)
-      $write(" b(h%x, taken=%b, flush=%b)", p.btarget[0+:16+2], p.btaken, p.bflush);
-    if(mem_oe && !mem_we) $write(" dmem[h%x]",      mem_addr);
-    if(mem_oe &&  mem_we) $write(" dmem[h%x]<-h%x", mem_addr, mem_wdata);
-    $display("");
+      $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)", p.btarget[0+:16+2], p.btaken, p.bflush);
+    else
+      branchstr = "";
+
+    if(mem_oe && !mem_we)       $sformat(memstr, "dmem[h%x]",      mem_addr);
+    else if(mem_oe &&  mem_we)  $sformat(memstr, "dmem[h%x] <- (h%x)", mem_addr, mem_wdata);
+    else                        memstr = "";
+
+    if(p.prev_stall!=4'b0)  $sformat(stallstr, "stall(b%b)", p.prev_stall);
+    else                    stallstr = "";
+
+    if(p.GPRWE(p.ir[p.WB]))
+      $sformat(wbstr, "(h%x) ->%s", p.rrd, REGNAME(p.RD(p.ir[p.WB])));
+    else
+      wbstr = "";
+
+    // display trace made with past WM stage info and current WB stage info
+    $display("%0s%0s", str_em, wbstr);
+
+    // save strings made with ExMa stage info
+    $sformat(str_em, "h%x: h%x %s %s %s %s %s %s | %0s%0s%0s",
+      pc, ir, opstr, f3str,
+      rdstr, rs1str, rs2str, immstr,
+      stallstr, branchstr, memstr);
   end
 
   function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =
