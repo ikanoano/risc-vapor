@@ -127,7 +127,7 @@ generate if(TRACE) begin
         funct3==`SW     ? "SW"    :
                           "UNK")    :
       opcode==`OPIMM || opcode==`OP ? (
-        funct3==`ADD    ? (funct7[5]==`ADD7 ? "ADD" : "SUB"):
+        funct3==`ADD    ? (opcode[3]&&funct7[5] ? "SUB" : "ADD"):
         funct3==`SLL    ? "SLL"   :
         funct3==`SLT    ? "SLT"   :
         funct3==`SLTU   ? "SLTU"  :
@@ -190,7 +190,7 @@ always @(posedge clk) imem_ready <= imem_oe;  // never misses
 
 // memory mapped IO
 wire          mmio_oe = mem_oe && mem_addr[28+:4]==4'hf;
-wire[ 4-1:0]  mmio_we = mmio_oe && mem_we;
+wire[ 4-1:0]  mmio_we = {4{mmio_oe}} & mem_we;
 reg [32-1:0]  mmio_rdata = 0;
 reg           mmio_ready = 1'b0;
 always @(posedge clk) begin
@@ -217,7 +217,7 @@ end
 
 // data memory
 wire          dmem_oe = mem_oe && mem_addr<32'h08000000;
-wire[ 4-1:0]  dmem_we = dmem_oe && mem_we;
+wire[ 4-1:0]  dmem_we = {4{dmem_oe}} & mem_we;
 wire[32-1:0]  dmem_rdata;
 reg           dmem_ready = 1'b0;
 RAM #(.SCALE(27-2)) dmem (

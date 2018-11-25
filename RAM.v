@@ -39,7 +39,7 @@ module RAM #(
     if(!rst && (
         (we0!=4'b1111 && we0!=4'b0000) ||
         (we1!=4'b1111 && we1!=4'b0000))) begin
-      $display("Not implemented: byte write");
+      $display("Not implemented: byte write: %b %b", we0, we1);
       $finish();
     end
   end

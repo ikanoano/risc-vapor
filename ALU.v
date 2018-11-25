@@ -6,6 +6,7 @@
 module ALU (
   input   wire          clk,
   input   wire          rst,
+  input   wire[ 5-1:0]  opcode,
   input   wire[   2:0]  funct3,
   input   wire[ 7-1:0]  funct7,
   input   wire[32-1:0]  opd1, // first operand
@@ -13,6 +14,7 @@ module ALU (
   output  wire[32-1:0]  rslt  // has 1-cycle latency
 );
 wire[ 5-1:0]  shamt   = opd2[0+:5];
+wire          r_type  = opcode[3];
 
 // arithmetic logic
 reg [32-1:0]  rslt_logi,rslt_add, rslt_sub, rslt_sll,
@@ -45,13 +47,13 @@ localparam[3-1:0]
 
 reg [ 3-1:0]  rslt_sel=0;
 always @(posedge clk) rslt_sel <=
-  funct3==`ADD  && funct7[5]==`ADD7 ? RSLT_ADD  :
-  funct3==`SUB  && funct7[5]==`SUB7 ? RSLT_SUB  :
-  funct3==`SLL                      ? RSLT_SLL  :
-  funct3==`SLT                      ? RSLT_SLT  :
-  funct3==`SLTU                     ? RSLT_SLTU :
-  funct3==`SRL  && funct7[5]==`SRL7 ? RSLT_SRL  :
-  funct3==`SRA  && funct7[5]==`SRA7 ? RSLT_SRA  :
+  funct3==`SUB && r_type && funct7[5]==`SUB7  ? RSLT_SUB  :
+  funct3==`ADD                                ? RSLT_ADD  :
+  funct3==`SLL                                ? RSLT_SLL  :
+  funct3==`SLT                                ? RSLT_SLT  :
+  funct3==`SLTU                               ? RSLT_SLTU :
+  funct3==`SRL  && funct7[5]==`SRL7           ? RSLT_SRL  :
+  funct3==`SRA  && funct7[5]==`SRA7           ? RSLT_SRA  :
                                       RSLT_LOGI;
 
 // select a proper result

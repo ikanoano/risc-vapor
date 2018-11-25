@@ -120,6 +120,7 @@ reg [32-1:0]  urslt, jrslt;
 ALU alu (
   .clk(clk),
   .rst(rst),
+  .opcode(OPCODE(ir[EM])),
   .funct3(FUNCT3(ir[EM])),
   .funct7(FUNCT7(ir[EM])),
   .opd1(opd1),
