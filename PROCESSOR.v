@@ -20,7 +20,7 @@ module PROCESSOR (
   input   wire          mem_ready
 );
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
-localparam  BOOT = 32'h80000000;
+localparam  BOOT = 32'h00000000;
 
 // Stall all stages preceding a stage where stall_req signal asserts.
 // Insert bubble if succeeding stages don't assert stall_req.

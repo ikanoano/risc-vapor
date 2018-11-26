@@ -288,7 +288,7 @@ always @(posedge clk) begin
   if(mmio_oe && mmio_we) begin  // write
     case (mem_addr)
       32'hf0000000: begin $display("Halt!"); $finish(); end
-      32'hf0000004: begin
+      32'hf0000100: begin
         if(TRACE) $display("output: %s", mem_wdata[0+:8]);
         else      $write("%s", mem_wdata[0+:8]);
       end
@@ -298,7 +298,7 @@ always @(posedge clk) begin
   if(mmio_oe && !mmio_we) begin // read
     case (mem_addr)
       // return non zero when TX is available (always available in testbench)
-      32'hf0000004: begin mmio_ready <= 1'b1; mmio_rdata <= 32'b1; end
+      32'hf0000100: begin mmio_ready <= 1'b1; mmio_rdata <= 32'b1; end
       default     : begin mmio_ready <= 1'b1; mmio_rdata <= 32'hxxxxxxxx; end
     endcase
   end else begin
