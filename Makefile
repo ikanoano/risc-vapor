@@ -1,4 +1,7 @@
-OBJS	=\
+IMAGE			= image
+MAX_CYCLE	= 100000
+DUMP			= 0
+OBJS			=\
 	ALU.v\
 	GPR.v\
 	INST.v\
@@ -7,20 +10,19 @@ OBJS	=\
 	ROM.v\
 	TOP.v\
 	UTIL.v
-IVFLAGS	= -Wall -g2005 -s TOP -PTOP.MAX_CYCLE=50000000
+IVFLAGS		= -Wall -g2005 -s TOP
+RUNFLAGS	= +IMAGE=$(IMAGE) +MAX_CYCLE=$(MAX_CYCLE) +DUMP=$(DUMP)
 
 all:
 	$(MAKE) isim
 
 isim:	$(OBJS)
-	iverilog $(OBJS) $(IVFLAGS) -PTOP.TRACE=0 -o $@
-isim-trace:	$(OBJS)
-	iverilog $(OBJS) $(IVFLAGS) -PTOP.TRACE=1 -o $@
+	iverilog $(OBJS) $(IVFLAGS) -o $@
 
 run:	isim
-	./$<
-run-trace:	isim-trace
-	./$<
+	./$< $(RUNFLAGS)
+run-trace:	isim
+	./$< $(RUNFLAGS) +TRACE=1
 
 clean:
 	rm -f isim*
