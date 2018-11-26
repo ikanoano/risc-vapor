@@ -21,3 +21,6 @@ run:	isim
 	./$<
 run-trace:	isim-trace
 	./$<
+
+clean:
+	rm -f isim*
