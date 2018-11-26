@@ -196,14 +196,15 @@ wire[32-1:0]  btarget =
   isecall         ? (mtvec[0] ? {mtvec[2+:30]+30'hb, 2'h0} : mtvec) :
   ismret          ? mepc                :
                     32'hxxxxxxxx;
-wire  btaken  = op_em==`JAL || op_em==`JALR || (op_em==`BRANCH & (
-  FUNCT3(ir[EM])==`BEQ  ? rrs1==rrs2                        :
-  FUNCT3(ir[EM])==`BNE  ? rrs1!=rrs2                        :
-  FUNCT3(ir[EM])==`BLT  ?   $signed(rrs1)<   $signed(rrs2)  :
-  FUNCT3(ir[EM])==`BGE  ?   $signed(rrs1)>=  $signed(rrs2)  :
-  FUNCT3(ir[EM])==`BLTU ? $unsigned(rrs1)< $unsigned(rrs2)  :
-  FUNCT3(ir[EM])==`BGEU ? $unsigned(rrs1)>=$unsigned(rrs2)  :
-                          1'bx));
+wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret || (
+  op_em==`BRANCH & (
+    FUNCT3(ir[EM])==`BEQ  ? rrs1==rrs2                        :
+    FUNCT3(ir[EM])==`BNE  ? rrs1!=rrs2                        :
+    FUNCT3(ir[EM])==`BLT  ?   $signed(rrs1)<   $signed(rrs2)  :
+    FUNCT3(ir[EM])==`BGE  ?   $signed(rrs1)>=  $signed(rrs2)  :
+    FUNCT3(ir[EM])==`BLTU ? $unsigned(rrs1)< $unsigned(rrs2)  :
+    FUNCT3(ir[EM])==`BGEU ? $unsigned(rrs1)>=$unsigned(rrs2)  :
+                            1'bx));
 wire  bflush  = btaken && pc[ID]!=btarget;
 
 // mem I/F
