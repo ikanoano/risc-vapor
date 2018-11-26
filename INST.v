@@ -55,6 +55,10 @@
 `define CSRRSI      3'b110
 `define CSRRCI      3'b111
 
+// funct3 - opimm/op
+`define FENCE       3'b000
+`define FENCEI      3'b001
+
 // funct7[5:5] - opimm/op
 `define ADD7        1'b0
 `define SUB7        1'b1

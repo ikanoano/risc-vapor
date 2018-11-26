@@ -106,61 +106,68 @@ generate if(TRACE) begin
     funct7  = p.FUNCT7(ir);
     imm     = p.IMM(ir);
     opstr =
-      ir==`NOP        ? "nop"   :
-      ir==`ECALL      ? "ecall" :
-      ir==`MRET       ? "mret"  :
-      opcode==`LOAD   ? "load"  :
-      opcode==`STORE  ? "store" :
-      opcode==`OPIMM  ? "opimm" :
-      opcode==`OP     ? "op"    :
-      opcode==`AUIPC  ? "auipc" :
-      opcode==`LUI    ? "lui"   :
-      opcode==`BRANCH ? "brnch" :
-      opcode==`JALR   ? "jalr"  :
-      opcode==`JAL    ? "jal"   :
-      opcode==`SYSTEM ? "csr"   :
-                        "unk";
+      ir==`NOP          ? "nop"   :
+      ir==`ECALL        ? "ecall" :
+      ir==`MRET         ? "mret"  :
+      opcode==`LOAD     ? "load"  :
+      opcode==`STORE    ? "store" :
+      opcode==`OPIMM    ? "opimm" :
+      opcode==`OP       ? "op"    :
+      opcode==`AUIPC    ? "auipc" :
+      opcode==`LUI      ? "lui"   :
+      opcode==`BRANCH   ? "brnch" :
+      opcode==`JALR     ? "jalr"  :
+      opcode==`JAL      ? "jal"   :
+      opcode==`MISCMEM  ? "miscm" :
+      opcode==`SYSTEM   ? "csr"   :
+                          "unk";
     f3str =
-      ir==`NOP        ? "-"     :
-      opcode==`BRANCH ? (
-        funct3==`BEQ    ? "beq"   :
-        funct3==`BNE    ? "bne"   :
-        funct3==`BLT    ? "blt"   :
-        funct3==`BGE    ? "bge"   :
-        funct3==`BLTU   ? "bltu"  :
-        funct3==`BGEU   ? "bgeu"  :
-                          "unk"):
-      opcode==`LOAD   ? (
-        funct3==`LB     ? "lb"    :
-        funct3==`LH     ? "lh"    :
-        funct3==`LW     ? "lw"    :
-        funct3==`LBU    ? "lbu"   :
-        funct3==`LHU    ? "lhu"   :
-                          "unk"):
-      opcode==`STORE  ? (
-        funct3==`SB     ? "sb"    :
-        funct3==`SH     ? "sh"    :
-        funct3==`SW     ? "sw"    :
-                          "unk"):
+      ir==`NOP          ? "-"     :
+      ir==`ECALL        ? "-"     :
+      ir==`MRET         ? "-"     :
+      opcode==`BRANCH   ? (
+        funct3==`BEQ      ? "beq"   :
+        funct3==`BNE      ? "bne"   :
+        funct3==`BLT      ? "blt"   :
+        funct3==`BGE      ? "bge"   :
+        funct3==`BLTU     ? "bltu"  :
+        funct3==`BGEU     ? "bgeu"  :
+                            "unk"):
+      opcode==`LOAD     ? (
+        funct3==`LB       ? "lb"    :
+        funct3==`LH       ? "lh"    :
+        funct3==`LW       ? "lw"    :
+        funct3==`LBU      ? "lbu"   :
+        funct3==`LHU      ? "lhu"   :
+                            "unk"):
+      opcode==`STORE    ? (
+        funct3==`SB       ? "sb"    :
+        funct3==`SH       ? "sh"    :
+        funct3==`SW       ? "sw"    :
+                            "unk"):
       opcode==`OPIMM || opcode==`OP ? (
-        funct3==`ADD    ? (opcode[3]&&funct7[5] ? "sub" : "add"):
-        funct3==`SLL    ? "sll"   :
-        funct3==`SLT    ? "slt"   :
-        funct3==`SLTU   ? "sltu"  :
-        funct3==`XOR    ? "xor"   :
-        funct3==`SRL    ? (funct7[5]==`SRL7 ? "srl" : "sra"):
-        funct3==`OR     ? "or"    :
-        funct3==`AND    ? "and"   :
-                          "unk"):
-      opcode==`SYSTEM ? (
-        funct3==`CSRRW  ? "rw"    :
-        funct3==`CSRRS  ? "rs"    :
-        funct3==`CSRRC  ? "rc"    :
-        funct3==`CSRRWI ? "rwi"   :
-        funct3==`CSRRSI ? "rsi"   :
-        funct3==`CSRRCI ? "rci"   :
-                          "unk"):
-                        "-";
+        funct3==`ADD      ? (opcode[3]&&funct7[5] ? "sub" : "add"):
+        funct3==`SLL      ? "sll"   :
+        funct3==`SLT      ? "slt"   :
+        funct3==`SLTU     ? "sltu"  :
+        funct3==`XOR      ? "xor"   :
+        funct3==`SRL      ? (funct7[5]==`SRL7 ? "srl" : "sra"):
+        funct3==`OR       ? "or"    :
+        funct3==`AND      ? "and"   :
+                            "unk"):
+      opcode==`MISCMEM  ? (
+        funct3==`FENCE    ? "fnc"   :
+        funct3==`FENCEI   ? "fnci"  :
+                            "unk"):
+      opcode==`SYSTEM   ? (
+        funct3==`CSRRW    ? "rw"    :
+        funct3==`CSRRS    ? "rs"    :
+        funct3==`CSRRC    ? "rc"    :
+        funct3==`CSRRWI   ? "rwi"   :
+        funct3==`CSRRSI   ? "rsi"   :
+        funct3==`CSRRCI   ? "rci"   :
+                            "unk"):
+                          "-";
 
     if(ir!=`NOP && p.USERD(ir))   $sformat(rdstr, "%s", REGNAME(p.RD(ir)));
     else                          rdstr = {3{SPACE}};
@@ -170,7 +177,7 @@ generate if(TRACE) begin
     else                          rs2str = {3+3+8{SPACE}};
     if(ir!=`NOP && p.USEIMM(ir))  $sformat(immstr, "imm(h%x)", p.IMM(ir));
     else                          immstr = {3+3+8{SPACE}};
-    if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL)
+    if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL || p.isecall || p.ismret)
       $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)", p.btarget[0+:16+2], p.btaken, p.bflush);
     else
       branchstr = "";
