@@ -7,7 +7,7 @@ module ALU (
   input   wire          clk,
   input   wire          rst,
   input   wire[ 5-1:0]  opcode,
-  input   wire[   2:0]  funct3,
+  input   wire[ 3-1:0]  funct3,
   input   wire[ 7-1:0]  funct7,
   input   wire[32-1:0]  opd1, // first operand
   input   wire[32-1:0]  opd2, // second operand

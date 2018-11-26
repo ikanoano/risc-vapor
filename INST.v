@@ -12,6 +12,9 @@
 `define JALR        5'b11001  // I-type
 `define JAL         5'b11011  // J-type
 
+`define MISCMEM     5'b00011  // NOP
+`define SYSTEM      5'b11100  // I-type
+
 // funct3 - branch
 `define BEQ         3'b000
 `define BNE         3'b001
@@ -43,6 +46,14 @@
 `define SRA         3'b101
 `define OR          3'b110
 `define AND         3'b111
+
+// funct3 - opimm/op
+`define CSRRW       3'b001
+`define CSRRS       3'b010
+`define CSRRC       3'b011
+`define CSRRWI      3'b101
+`define CSRRSI      3'b110
+`define CSRRCI      3'b111
 
 // funct7[5:5] - opimm/op
 `define ADD7        1'b0

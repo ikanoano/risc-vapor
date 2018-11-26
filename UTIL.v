@@ -32,3 +32,14 @@
 (x<=2**30)?30:\
 (x<=2**31)?31:\
 (x<=2**32)?32:99)
+
+`define CSRUPDATE(csr)\
+case(FUNCT3(ir[EM]))\
+`CSRRW:csr<=rrs1;\
+`CSRRS:csr<=csr|rrs1;\
+`CSRRC:csr<=csr&~rrs1;\
+`CSRRWI:csr<={27'h0,RS1(ir[EM])};\
+`CSRRSI:csr<=csr|{27'h0,RS1(ir[EM])};\
+`CSRRCI:csr<=csr&~{27'h0,RS1(ir[EM])};\
+default:begin;end\
+endcase

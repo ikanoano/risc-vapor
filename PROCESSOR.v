@@ -1,5 +1,6 @@
 `default_nettype none
 `timescale 1ns/100ps
+`include "UTIL.v"
 `include "INST.v"
 
 module PROCESSOR (
@@ -18,7 +19,8 @@ module PROCESSOR (
   input   wire[32-1:0]  mem_rdata,
   input   wire          mem_ready
 );
-localparam IF = 0, ID = 1, EM = 2, WB = 3;
+localparam  IF = 0, ID = 1, EM = 2, WB = 3;
+localparam  BOOT = 32'h80000000;
 
 // Stall all stages preceding a stage where stall_req signal asserts.
 // Insert bubble if succeeding stages don't assert stall_req.
@@ -43,7 +45,7 @@ always @(posedge clk) begin
     stall[i]                  ? ir[i]       :
                                 ir[i-1];
   pc[IF]  <=
-    rst                       ? 0           :
+    rst                       ? BOOT        :
     btaken && bflush          ? btarget     :
     stall[IF]                 ? pc[IF]      :
                                 pc[IF]+4;
@@ -52,6 +54,14 @@ always @(posedge clk) begin
     stall[i]                  ? pc[i]       :
                                 pc[i-1];
 end
+
+// control and status registers
+wire[32-1:0]  mhartid=0;                                              // hf14
+wire[32-1:0]  misa={2'h1, 4'h0, 26'b00000000000000000100000000};      // h301
+reg [32-1:0]  mtvec=BOOT;                                             // h305
+reg [32-1:0]  mscratch, mepc, mcause;                                 // h34x
+reg [32-1:0]  mcycle, mcycleh;                                        // hbxx
+always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle} + 64'h1);
 
 generate genvar gi;
   // Because imem has 1-cycle latency, we have to set ir[ID] after rdata is ready
@@ -114,7 +124,7 @@ assign  stall_req[ID] = !rst && (imem_miss ||
 // Execute and Memory access stage ========================================
 wire[ 5-1:0]  op_em = OPCODE(ir[EM]);
 wire[32-1:0]  rslt;
-reg [32-1:0]  urslt, jrslt;
+reg [32-1:0]  urslt, jrslt, crslt;
 
 // R-type or I-type instructions result
 ALU alu (
@@ -131,20 +141,60 @@ ALU alu (
 always @(posedge clk) urslt <= UIMM(ir[EM]) + (ir[EM][5] ? 0 : pc[EM]);
 // JAL and JALR result
 always @(posedge clk) jrslt <= pc[EM]+4;  // rrd<-pc+4
+// CSR* result
+always @(posedge clk) begin
+  // CSR read
+  case(ir[EM][20+:12])
+    12'hf14: crslt <= mhartid;
+    12'h301: crslt <= misa;
+    12'h305: crslt <= mtvec;
+    12'h340: crslt <= mscratch;
+    12'h341: crslt <= mepc;
+    12'h342: crslt <= mcause;
+    12'hb00: crslt <= mcycle;
+    12'hb80: crslt <= mcycleh;
+    default: crslt <= 32'h0;
+  endcase
+
+  // CSR write
+  if(op_em==`SYSTEM) begin
+    if(FUNCT3(ir[EM])==3'h0) begin
+      case(ir[EM][21])
+        // ECALL
+        1'b0: begin mepc<=pc[EM]; mcause<=32'hb; end
+        // MRET
+        1'b1: begin end
+      endcase
+    end else begin
+      case(ir[EM][20+:12])
+        12'h305: `CSRUPDATE(mtvec)
+        12'h340: `CSRUPDATE(mscratch)
+        12'h341: `CSRUPDATE(mepc)
+        12'h342: `CSRUPDATE(mcause)
+        default: begin end
+      endcase
+    end
+  end
+end
 
 // result selector
-reg sel_dmem, sel_urslt, sel_jrslt;
+reg sel_dmem, sel_urslt, sel_jrslt, sel_crslt;
 always @(posedge clk) begin
   sel_dmem  <= op_em==`LOAD;
   sel_urslt <= op_em==`AUIPC || op_em==`LUI;
   sel_jrslt <= op_em==`JALR  || op_em==`JAL;
+  sel_crslt <= op_em==`SYSTEM;
 end
 
 // branch instructions
+wire          isecall = op_em==`SYSTEM && FUNCT3(ir[EM])==3'h0 && !ir[EM][21];
+wire          ismret  = op_em==`SYSTEM && FUNCT3(ir[EM])==3'h0 &&  ir[EM][21];
 wire[32-1:0]  btarget =
   op_em==`JAL     ? pc[EM]+JIMM(ir[EM]) :
   op_em==`JALR    ? rrs1  +IIMM(ir[EM]) :
   op_em==`BRANCH  ? pc[EM]+BIMM(ir[EM]) :
+  isecall         ? (mtvec[0] ? {mtvec[2+:30]+30'hb, 2'h0} : mtvec) :
+  ismret          ? mepc                :
                     32'hxxxxxxxx;
 wire  btaken  = op_em==`JAL || op_em==`JALR || (op_em==`BRANCH & (
   FUNCT3(ir[EM])==`BEQ  ? rrs1==rrs2                        :
@@ -169,6 +219,7 @@ assign  rrd           =
   sel_dmem  ? mem_rdata :
   sel_urslt ? urslt :
   sel_jrslt ? jrslt :
+  sel_crslt ? crslt :
               rslt;
 
 reg     prev_dmem_read=1'b0;
@@ -221,12 +272,15 @@ endfunction
 
 function[ 1-1:0]  USERD (input[32-1:0] inst); USERD  =
   OPCODE(inst)!=`STORE  &&
-  OPCODE(inst)!=`BRANCH;
+  OPCODE(inst)!=`BRANCH &&
+  OPCODE(inst)!=`MISCMEM;
 endfunction
 function[ 1-1:0]  USERS1(input[32-1:0] inst); USERS1 =
   OPCODE(inst)!=`AUIPC  &&
   OPCODE(inst)!=`LUI    &&
-  OPCODE(inst)!=`JAL;
+  OPCODE(inst)!=`JAL    &&
+  OPCODE(inst)!=`MISCMEM;
+  //OPCODE(inst)==`SYSTEM && (...);  TUNE: some functs in SYSTEM don't use RS1
 endfunction
 function[ 1-1:0]  USERS2(input[32-1:0] inst); USERS2 =
   OPCODE(inst)==`STORE  ||
@@ -234,7 +288,8 @@ function[ 1-1:0]  USERS2(input[32-1:0] inst); USERS2 =
   OPCODE(inst)==`BRANCH;
 endfunction
 function[ 1-1:0]  USEIMM(input[32-1:0] inst); USEIMM =
-  OPCODE(inst)!=`OP;
+  OPCODE(inst)!=`OP     &&
+  OPCODE(inst)!=`MISCMEM;
 endfunction
 
 endmodule
