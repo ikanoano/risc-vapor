@@ -61,6 +61,7 @@
 `define SRL7        1'b0
 `define SRA7        1'b1
 
+
 // Whole instruction
-`define NOP         {12'b0, 5'b0, `ADD, 5'b0, `OPIMM, 2'b0}
+`define NOP         {12'b0, 5'b0, `ADD, 5'b0, `OPIMM, 2'b11}
 
