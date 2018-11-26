@@ -107,6 +107,8 @@ generate if(TRACE) begin
     imm     = p.IMM(ir);
     opstr =
       ir==`NOP        ? "nop"   :
+      ir==`ECALL      ? "ecall" :
+      ir==`MRET       ? "mret"  :
       opcode==`LOAD   ? "load"  :
       opcode==`STORE  ? "store" :
       opcode==`OPIMM  ? "opimm" :
@@ -116,9 +118,10 @@ generate if(TRACE) begin
       opcode==`BRANCH ? "brnch" :
       opcode==`JALR   ? "jalr"  :
       opcode==`JAL    ? "jal"   :
+      opcode==`SYSTEM ? "csr"   :
                         "unk";
     f3str =
-      ir==`NOP        ? "-"   :
+      ir==`NOP        ? "-"     :
       opcode==`BRANCH ? (
         funct3==`BEQ    ? "beq"   :
         funct3==`BNE    ? "bne"   :
@@ -126,19 +129,19 @@ generate if(TRACE) begin
         funct3==`BGE    ? "bge"   :
         funct3==`BLTU   ? "bltu"  :
         funct3==`BGEU   ? "bgeu"  :
-                          "unk")    :
+                          "unk"):
       opcode==`LOAD   ? (
         funct3==`LB     ? "lb"    :
         funct3==`LH     ? "lh"    :
         funct3==`LW     ? "lw"    :
         funct3==`LBU    ? "lbu"   :
         funct3==`LHU    ? "lhu"   :
-                          "unk")    :
+                          "unk"):
       opcode==`STORE  ? (
         funct3==`SB     ? "sb"    :
         funct3==`SH     ? "sh"    :
         funct3==`SW     ? "sw"    :
-                          "unk")    :
+                          "unk"):
       opcode==`OPIMM || opcode==`OP ? (
         funct3==`ADD    ? (opcode[3]&&funct7[5] ? "sub" : "add"):
         funct3==`SLL    ? "sll"   :
@@ -148,7 +151,15 @@ generate if(TRACE) begin
         funct3==`SRL    ? (funct7[5]==`SRL7 ? "srl" : "sra"):
         funct3==`OR     ? "or"    :
         funct3==`AND    ? "and"   :
-                          "unk")    :
+                          "unk"):
+      opcode==`SYSTEM ? (
+        funct3==`CSRRW  ? "rw"    :
+        funct3==`CSRRS  ? "rs"    :
+        funct3==`CSRRC  ? "rc"    :
+        funct3==`CSRRWI ? "rwi"   :
+        funct3==`CSRRSI ? "rsi"   :
+        funct3==`CSRRCI ? "rci"   :
+                          "unk"):
                         "-";
 
     if(ir!=`NOP && p.USERD(ir))   $sformat(rdstr, "%s", REGNAME(p.RD(ir)));

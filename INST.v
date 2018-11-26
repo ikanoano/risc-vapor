@@ -64,4 +64,6 @@
 
 // Whole instruction
 `define NOP         {12'b0, 5'b0, `ADD, 5'b0, `OPIMM, 2'b11}
+`define ECALL       {12'b000000000000, 5'b0, 3'b0, 5'b0, `SYSTEM, 2'b11}
+`define MRET        {12'b001100000010, 5'b0, 3'b0, 5'b0, `SYSTEM, 2'b11}
 
