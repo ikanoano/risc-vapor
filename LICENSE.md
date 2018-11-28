@@ -1,4 +1,4 @@
-# Except ./testbin/
+## Except ./testbin/ and ./dhrystone/
 MIT License
 
 Copyright (c) 2018 ikanoano
@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-# ./testbin/
+## ./testbin/
 Source: [riscv/riscv-compliance](https://github.com/riscv/riscv-compliance/tree/master/riscv-test-suite/rv32i)
 
 Copyright (c) 2017, Codasip Ltd.
@@ -50,7 +50,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# ./dhrystone
+## ./dhrystone/
 Source: [riscv/riscv-tests](https://github.com/riscv/riscv-tests/tree/master/benchmarks/dhrystone)
 
 Copyright (c) 2012-2015, The Regents of the University of California (Regents).
