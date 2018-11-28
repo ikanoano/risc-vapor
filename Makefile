@@ -1,7 +1,7 @@
-IMAGE			= image
-MAX_CYCLE	= 100000
-DUMP			= 0
-OBJS			=\
+IMAGE			?= image
+MAX_CYCLE	?= 100000
+DUMP			?= 0
+OBJS			?=\
 	ALU.v\
 	GPR.v\
 	INST.v\
@@ -10,8 +10,8 @@ OBJS			=\
 	ROM.v\
 	TOP.v\
 	UTIL.v
-IVFLAGS		= -Wall -g2005 -s TOP
-RUNFLAGS	= +IMAGE=$(IMAGE) +MAX_CYCLE=$(MAX_CYCLE) +DUMP=$(DUMP)
+IVFLAGS		?= -Wall -g2005 -s TOP
+RUNFLAGS	?= +IMAGE=$(IMAGE) +MAX_CYCLE=$(MAX_CYCLE) +DUMP=$(DUMP)
 
 all:
 	$(MAKE) isim
