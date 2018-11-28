@@ -1,20 +1,19 @@
 #!/bin/bash
 
 target="/tmp/target_image.bin"
-trace="/tmp/target_trace.txt"
 all=0
 pass=0
 for elf in ./testbin/*.elf; do
   all=$((all+1))
   riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost $elf $target
-  make run-trace MAX_CYCLE=1000 IMAGE=$target DUMP=0 &> $trace
+  trace="`dirname $target`/`basename $elf`.trace"
+  make run-trace MAX_CYCLE=500 IMAGE=$target DUMP=0 &> $trace
   if grep 'output: ' $trace &> /dev/null; then
     result="OK"
     pass=$((pass+1))
+    rm $trace
   else
-    ngtrace="`dirname $trace`/NG-`basename $elf`.dump"
-    mv $trace $ngtrace
-    result="NG -> $ngtrace"
+    result="NG -> $trace"
   fi
   printf "%30s | ${result}\n" `basename $elf`
 done
