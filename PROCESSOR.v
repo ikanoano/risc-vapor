@@ -189,13 +189,13 @@ end
 // branch instructions
 wire          isecall = op_em==`SYSTEM && FUNCT3(ir[EM])==3'h0 && !ir[EM][21];
 wire          ismret  = op_em==`SYSTEM && FUNCT3(ir[EM])==3'h0 &&  ir[EM][21];
-wire[32-1:0]  btarget =
+wire[32-1:0]  btarget = ~32'h1 & (
   op_em==`JAL     ? pc[EM]+JIMM(ir[EM]) :
   op_em==`JALR    ? rrs1  +IIMM(ir[EM]) :
   op_em==`BRANCH  ? pc[EM]+BIMM(ir[EM]) :
   isecall         ? (mtvec[0] ? {mtvec[2+:30]+30'hb, 2'h0} : mtvec) :
   ismret          ? mepc                :
-                    32'hxxxxxxxx;
+                    32'hxxxxxxxx);
 wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret || (
   op_em==`BRANCH & (
     FUNCT3(ir[EM])==`BEQ  ? rrs1==rrs2                        :
