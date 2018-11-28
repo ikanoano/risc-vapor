@@ -216,8 +216,16 @@ assign  mem_we        = MEMWE(ir[EM]);
 assign  stall_req[EM] = 1'b0;
 
 // Write Back stage ========================================
+wire[32-1:0]  mem_rdata_masked =
+  FUNCT3(ir[WB])==`LB   ? {{24{mem_rdata[ 7]}}, mem_rdata[0+: 8]} :
+  FUNCT3(ir[WB])==`LH   ? {{16{mem_rdata[15]}}, mem_rdata[0+:16]} :
+  FUNCT3(ir[WB])==`LW   ?                       mem_rdata[0+:32]  :
+  FUNCT3(ir[WB])==`LBU  ? {{24{         1'b0}}, mem_rdata[0+: 8]} :
+  FUNCT3(ir[WB])==`LHU  ? {{16{         1'b0}}, mem_rdata[0+:16]} :
+                          32'hxxxxxxxx;
+
 assign  rrd           =
-  sel_dmem  ? mem_rdata :
+  sel_dmem  ? mem_rdata_masked :
   sel_urslt ? urslt :
   sel_jrslt ? jrslt :
   sel_crslt ? crslt :

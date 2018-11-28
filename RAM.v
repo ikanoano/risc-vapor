@@ -13,13 +13,13 @@ module RAM #(
   input   wire[SCALE-1:0] addr0,
   input   wire[   32-1:0] wdata0,
   input   wire[    4-1:0] we0,
-  output  reg [   32-1:0] rdata0,
+  output  wire[   32-1:0] rdata0,
 
   input   wire            oe1,
   input   wire[SCALE-1:0] addr1,
   input   wire[   32-1:0] wdata1,
   input   wire[    4-1:0] we1,
-  output  reg [   32-1:0] rdata1
+  output  wire[   32-1:0] rdata1
 );
   wire[SCALE-3:0] word0 = addr0[2+:SCALE-2];
   wire[SCALE-3:0] word1 = addr1[2+:SCALE-2];
@@ -27,8 +27,8 @@ module RAM #(
   (* ram_style = "block" *)
   reg [32-1:0]  ram[0:2**(SCALE-2)-1];  // 2**(SCALE-2) word = 2**SCALE byte
 
-  wire[32-1:0]  pad_wdata0  = wdata0  << (addr0[1:0]<<3);
-  wire[32-1:0]  pad_wdata1  = wdata1  << (addr1[1:0]<<3);
+  wire[32-1:0]  pad_wdata0  = wdata0  << ({3'h0, addr0[1:0]}<<3);
+  wire[32-1:0]  pad_wdata1  = wdata1  << ({3'h0, addr1[1:0]}<<3);
   wire[ 4-1:0]  pad_we0     = we0     << (addr0[1:0]);
   wire[ 4-1:0]  pad_we1     = we1     << (addr1[1:0]);
 
@@ -46,12 +46,16 @@ module RAM #(
     pad_we1[0] ? pad_wdata1[8*0+:8] : ram[word1][8*0+:8]
   };
 
+  reg [   1:0]  offset0, offset1;
+  reg [32-1:0]  _rdata0, _rdata1;
   always @(posedge clk) begin
     if(oe0) ram[word0]  <= d0;
-    if(oe0) rdata0      <= d0 >> (addr0[1:0]<<3);
+    if(oe0) _rdata0     <= d0;
+    if(oe0) offset0     <= addr0[1:0];
 
     if(oe1) ram[word1]  <= d1;
-    if(oe1) rdata1      <= d1 >> (addr0[1:0]<<3);
+    if(oe1) _rdata1     <= d1;
+    if(oe1) offset1     <= addr1[1:0];
 
     if(!rst && (we0==4'b0111 || we1==4'b0111)) begin
       $display("Unknown access pattern: %b %b", we0, we1);
@@ -67,6 +71,8 @@ module RAM #(
       $finish();
     end
   end
+  assign rdata0 = _rdata0 >> ({3'h0, offset0}<<3);
+  assign rdata1 = _rdata1 >> ({3'h0, offset1}<<3);
 
   // Initialize with dummy value or the ram may be eliminated by optimization.
   //integer i;
