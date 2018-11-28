@@ -156,7 +156,7 @@ always @(posedge clk) begin
     case (mem_addr)
       // return non zero when TX is available (always available in testbench)
       32'hf0000100: begin mmio_ready <= 1'b1; mmio_rdata <= 32'b1; end
-      default     : begin mmio_ready <= 1'b1; mmio_rdata <= 32'hxxxxxxxx; end
+      default     : begin mmio_ready <= 1'b1; mmio_rdata <= 32'h0; end
     endcase
   end else begin
     mmio_ready  <= 1'b0;
@@ -312,8 +312,8 @@ always @(posedge clk) if(TRACE) begin
   if(p.prev_stall!=4'b0)  $sformat(stallstr, "stall(b%b)", p.prev_stall);
   else                    stallstr = "";
 
-  if(p.GPRWE(p.ir[p.WB]))
-    $sformat(wbstr, "(h%x) ->%s", p.rrd, REGNAME(p.RD(p.ir[p.WB])));
+  if(p.gpr.we)
+    $sformat(wbstr, "(h%x) ->%s", p.gpr.rrd, REGNAME(p.gpr.rd));
   else
     wbstr = "";
 
