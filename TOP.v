@@ -122,16 +122,16 @@ PROCESSOR p (
 // RAM module always respond in one cycle, so there is no need in this case.
 
 // instruction memory
-ROM #(.SCALE(16-2)) imem (
+ROM #(.SCALE(16)) imem (
   .clk(clk),
   .rst(rst),
 
   .oe0(imem_oe),
-  .addr0(imem_addr[2+:14]),
+  .addr0(imem_addr),
   .rdata0(imem_rdata),
 
   .oe1(1'b0),
-  .addr1(14'h0),
+  .addr1(16'h0),
   .rdata1()
 );
 always @(posedge clk) imem_ready <= imem_oe;  // never misses
@@ -168,18 +168,18 @@ wire          dmem_oe = mem_oe && mem_addr<32'h08000000;
 wire[ 4-1:0]  dmem_we = {4{dmem_oe}} & mem_we;
 wire[32-1:0]  dmem_rdata;
 reg           dmem_ready = 1'b0;
-RAM #(.SCALE(27-2)) dmem (
+RAM #(.SCALE(27)) dmem (
   .clk(clk),
   .rst(rst),
 
   .oe0(dmem_oe),
-  .addr0(mem_addr[2+:25]),
+  .addr0(mem_addr),
   .wdata0(mem_wdata),
   .we0(dmem_we),
   .rdata0(dmem_rdata),
 
   .oe1(1'b0),
-  .addr1(25'h0),
+  .addr1(27'h0),
   .wdata1(),
   .we1(4'b0),
   .rdata1()
@@ -193,8 +193,8 @@ assign  mem_rdata =
                 32'hxxxxxxxx;
 
 always @(posedge clk) begin
-  if(!rst && ((imem_oe && |imem_addr[1:0]) || (mem_oe && |mem_addr[1:0]))) begin
-    $display("Not implemented: r/w to non-aligned addr %x %x", imem_addr, mem_addr);
+  if(!rst && (imem_oe && |imem_addr[1:0])) begin
+    $display("Error: read imem with non-aligned addr: %x", imem_addr);
     $finish();
   end
 end
