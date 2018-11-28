@@ -29,8 +29,8 @@ module RAM #(
 
   wire[32-1:0]  pad_wdata0  = wdata0  << (addr0[1:0]<<3);
   wire[32-1:0]  pad_wdata1  = wdata1  << (addr1[1:0]<<3);
-  wire[ 4-1:0]  pad_we0     = we0     << (addr0[1:0]<<3);
-  wire[ 4-1:0]  pad_we1     = we1     << (addr1[1:0]<<3);
+  wire[ 4-1:0]  pad_we0     = we0     << (addr0[1:0]);
+  wire[ 4-1:0]  pad_we1     = we1     << (addr1[1:0]);
 
   wire[32-1:0]  d0, d1;
   assign  d0 = {
