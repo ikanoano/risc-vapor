@@ -110,16 +110,34 @@ always @(posedge clk) begin
   opd2    <= OPCODE(ir[ID])==`OP ? rrs2_gpr : IIMM(ir[ID]);
 end
 
-wire[5-1:0]   rd_em=RD(ir[EM]), rs1_id=RS1(ir[ID]), rs2_id=RS2(ir[ID]);
-
 reg     prev_imem_read=1'b0;
 always @(posedge clk) if(!imem_miss) prev_imem_read <= imem_oe;
 assign  imem_miss = prev_imem_read & !imem_ready;
 
 // stall if (ir[ID] is not ready) or (source operand is still in EM stage)
 // TUNE: deal with the case where rs2 or rs1 is not used
+wire[5-1:0]   rd_em=RD(ir[EM]), rs1_id=RS1(ir[ID]), rs2_id=RS2(ir[ID]);
 assign  stall_req[ID] = !rst && (imem_miss ||
   (GPRWE(ir[EM]) && (rd_em==rs1_id || rd_em==rs2_id)));
+
+// prefetch values used by branch instructions
+reg           isecall, ismret;
+reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
+reg [ 8-1:0]  bcond;
+always @(posedge clk) if(!stall[EM]) begin
+  isecall   <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
+  ismret    <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+  btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
+  btarget_jalr  <= rrs1_gpr +IIMM(ir[ID]);
+  btarget_branch<= pc[ID]   +BIMM(ir[ID]);
+  bcond[`BEQ ]  <= rrs1_gpr==rrs2_gpr;
+  bcond[`BNE ]  <= rrs1_gpr!=rrs2_gpr;
+  bcond[`BLT ]  <=   $signed(rrs1_gpr)<   $signed(rrs2_gpr);
+  bcond[`BGE ]  <=   $signed(rrs1_gpr)>=  $signed(rrs2_gpr);
+  bcond[`BLTU]  <= $unsigned(rrs1_gpr)< $unsigned(rrs2_gpr);
+  bcond[`BGEU]  <= $unsigned(rrs1_gpr)>=$unsigned(rrs2_gpr);
+end
+initial bcond[3:2] = 2'bxx;
 
 // Execute and Memory access stage ========================================
 wire[ 5-1:0]  op_em = OPCODE(ir[EM]);
@@ -187,24 +205,15 @@ always @(posedge clk) begin
 end
 
 // branch instructions
-wire          isecall = op_em==`SYSTEM && FUNCT3(ir[EM])==3'h0 && !ir[EM][21];
-wire          ismret  = op_em==`SYSTEM && FUNCT3(ir[EM])==3'h0 &&  ir[EM][21];
 wire[32-1:0]  btarget = ~32'h1 & (
-  op_em==`JAL     ? pc[EM]+JIMM(ir[EM]) :
-  op_em==`JALR    ? rrs1  +IIMM(ir[EM]) :
-  op_em==`BRANCH  ? pc[EM]+BIMM(ir[EM]) :
+  op_em==`JAL     ? btarget_jal     :
+  op_em==`JALR    ? btarget_jalr    :
+  op_em==`BRANCH  ? btarget_branch  :
   isecall         ? (mtvec[0] ? {mtvec[2+:30]+30'hb, 2'h0} : mtvec) :
   ismret          ? mepc                :
                     32'hxxxxxxxx);
-wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret || (
-  op_em==`BRANCH & (
-    FUNCT3(ir[EM])==`BEQ  ? rrs1==rrs2                        :
-    FUNCT3(ir[EM])==`BNE  ? rrs1!=rrs2                        :
-    FUNCT3(ir[EM])==`BLT  ?   $signed(rrs1)<   $signed(rrs2)  :
-    FUNCT3(ir[EM])==`BGE  ?   $signed(rrs1)>=  $signed(rrs2)  :
-    FUNCT3(ir[EM])==`BLTU ? $unsigned(rrs1)< $unsigned(rrs2)  :
-    FUNCT3(ir[EM])==`BGEU ? $unsigned(rrs1)>=$unsigned(rrs2)  :
-                            1'bx));
+wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
+                (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]));
 wire  bflush  = btaken && pc[ID]!=btarget;
 
 // mem I/F
