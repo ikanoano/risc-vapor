@@ -22,38 +22,60 @@ module PROCESSOR (
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
 localparam  BOOT = 32'h00000000;
 
-// Stall all stages preceding a stage where stall_req signal asserts.
+// stall request
+wire[WB:IF]   stall_req;
+// Stall all stages preceding a stage which requests to stall
+wire[WB:IF]   stall   = stall_req |  {1'b0, stall[WB:ID]};
 // Insert bubble if succeeding stages don't assert stall_req.
-wire[WB:IF] stall_req;
-wire[WB:IF] stall   = stall_req |  {1'b0, stall[WB:ID]};
-wire[WB:IF] insertb = stall_req & ~{1'b0, stall[WB:ID]};
+wire[WB:IF]   insertb = stall_req & ~{1'b0, stall[WB:ID]};
 
-wire[32-1:0]  ir[ID:WB];    // Instruction Registers
-reg [32-1:0]  pc[IF:WB];    // Program Counters
+// branch target, branch taken, signal to flush ID to EM stage
+wire[32-1:0]  btarget;
+wire          btaken, bflush;
 
-reg [32-1:0]  _ir[EM:WB];
-reg           prev_bflush=0;  // bflush in last cycle
-reg [WB:IF]   prev_stall=0;   // stall in last cycle
-reg [WB:IF]   prev_insertb=0; // insertb in last cycle
-
+// Program Counters for each stage
+reg [32-1:0]  pc[IF:WB];
 integer i;
 always @(posedge clk) begin
-  for(i=EM; i<=WB; i=i+1) _ir[i] <=
-    rst                       ? `NOP        :
-    i==EM && bflush           ? `NOP        :
-    insertb[i-1]              ? `NOP        :
-    stall[i]                  ? ir[i]       :
-                                ir[i-1];
   pc[IF]  <=
     rst                       ? BOOT        :
-    btaken && bflush          ? btarget     :
+    bflush                    ? btarget     :
     stall[IF]                 ? pc[IF]      :
                                 pc[IF]+4;
   for(i=ID; i<=WB; i=i+1) pc[i] <=
-    rst                       ? 0           :
+    rst                       ? BOOT        :
     stall[i]                  ? pc[i]       :
                                 pc[i-1];
 end
+
+// Instruction Registers for each stage
+wire[32-1:0]  ir[ID:WB];
+reg [32-1:0]  _ir[EM:WB];
+assign  ir[ID]  =
+  rst                       ? `NOP        :
+  prev_bflush               ? `NOP        :
+  prev_insertb[IF]          ? `NOP        :
+                              imem_rdata;
+assign  ir[EM]  = _ir[EM];
+always @(posedge clk) _ir[EM] <=
+  rst                       ? `NOP        :
+  bflush                    ? `NOP        :
+  insertb[ID]               ? `NOP        :
+  stall[EM]                 ? ir[EM]      :
+                              ir[ID];
+assign  ir[WB]  = _ir[WB];
+always @(posedge clk) _ir[WB] <=
+  rst                       ? `NOP        :
+  insertb[EM]               ? `NOP        :
+  stall[WB]                 ? ir[WB]      :
+                              ir[EM];
+
+reg [WB:IF]   prev_stall=0;   // stall in last cycle
+reg [WB:IF]   prev_insertb=0; // insertb in last cycle
+reg           prev_bflush=0;  // bflush in last cycle
+always @(posedge clk) prev_bflush   <= bflush;
+always @(posedge clk) prev_stall    <= stall;
+always @(posedge clk) prev_insertb  <= insertb;
 
 // control and status registers
 wire[32-1:0]  mhartid=0;                                              // hf14
@@ -61,27 +83,18 @@ wire[32-1:0]  misa={2'h1, 4'h0, 26'b00000000000000000100000000};      // h301
 reg [32-1:0]  mtvec=BOOT;                                             // h305
 reg [32-1:0]  mscratch, mepc, mcause;                                 // h34x
 reg [32-1:0]  mcycle, mcycleh;                                        // hbxx
-always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle} + 64'h1);
-
-generate genvar gi;
-  // Because imem has 1-cycle latency, we have to set ir[ID] after rdata is ready
-  assign  ir[ID]  =
-    rst                       ? `NOP        :
-    prev_bflush               ? `NOP        :
-    prev_insertb[IF]          ? `NOP        :
-                                imem_rdata;
-  for(gi=EM; gi<=WB; gi=gi+1) assign ir[gi] = _ir[gi];
-endgenerate
-
-always @(posedge clk) prev_bflush   <= bflush;
-always @(posedge clk) prev_stall    <= stall;
-always @(posedge clk) prev_insertb  <= insertb;
+always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle}+64'h1);
 
 // Instruction Fetch stage ========================================
 // imem I/F
+assign  imem_addr   = pc[IF][0+:16];
+assign  imem_oe     = !stall[IF];
+
 wire    imem_miss;
-assign  imem_addr     = pc[IF][0+:16];
-assign  imem_oe       = !stall[IF];
+reg     prev_imem_read=1'b0;
+always @(posedge clk) prev_imem_read <= imem_miss || imem_oe;
+assign  imem_miss = !rst & prev_imem_read & !imem_ready;
+
 assign  stall_req[IF] = 1'b0;
 
 // Instruction Decode stage ========================================
@@ -106,62 +119,56 @@ always @(posedge clk) begin
   rrs2    <= rrs2_gpr;
 end
 
-reg     prev_imem_read=1'b0;
-always @(posedge clk) if(!imem_miss) prev_imem_read <= imem_oe;
-assign  imem_miss = prev_imem_read & !imem_ready;
-
-// stall if (ir[ID] is not ready) or (source operand is still in EM stage)
-// TUNE: deal with the case where rs2 or rs1 is not used
-wire[5-1:0]   rd_em=RD(ir[EM]), rs1_id=RS1(ir[ID]), rs2_id=RS2(ir[ID]);
-assign  stall_req[ID] = !rst && (imem_miss || (
-  GPRWE(ir[EM]) &&
-  (rd_em==rs1_id || rd_em==rs2_id) &&
-  (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use rrs1_gpr
-));
-
 // prefetch values used by branch instructions
 reg           isecall, ismret;
 reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
-reg [ 8-1:0]  bcond;
+reg [ 8-1:0]  bcond=8'hxx;
 always @(posedge clk) if(!stall[EM]) begin
   isecall   <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
   ismret    <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
   btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
   btarget_jalr  <= rrs1_gpr +IIMM(ir[ID]);
   btarget_branch<= pc[ID]   +BIMM(ir[ID]);
-  bcond[`BEQ ]  <= rrs1_gpr==rrs2_gpr;
-  bcond[`BNE ]  <= rrs1_gpr!=rrs2_gpr;
-  bcond[`BLT ]  <=   $signed(rrs1_gpr)<   $signed(rrs2_gpr);
-  bcond[`BGE ]  <=   $signed(rrs1_gpr)>=  $signed(rrs2_gpr);
-  bcond[`BLTU]  <= $unsigned(rrs1_gpr)< $unsigned(rrs2_gpr);
-  bcond[`BGEU]  <= $unsigned(rrs1_gpr)>=$unsigned(rrs2_gpr);
+  bcond[`BEQ ]  <=           rrs1_gpr  ==           rrs2_gpr;
+  bcond[`BNE ]  <=           rrs1_gpr  !=           rrs2_gpr;
+  bcond[`BLT ]  <=   $signed(rrs1_gpr) <    $signed(rrs2_gpr);
+  bcond[`BGE ]  <=   $signed(rrs1_gpr) >=   $signed(rrs2_gpr);
+  bcond[`BLTU]  <= $unsigned(rrs1_gpr) <  $unsigned(rrs2_gpr);
+  bcond[`BGEU]  <= $unsigned(rrs1_gpr) >= $unsigned(rrs2_gpr);
 end
-initial bcond[3:2] = 2'bxx;
+
+// stall if (ir[ID] is not ready) or (source operand is still in EM stage)
+// TUNE: deal with the case where rs2 or rs1 is not used
+assign  stall_req[ID] = imem_miss || (
+  GPRWE(ir[EM]) &&
+  (RD(ir[EM])==RS1(ir[ID]) || RD(ir[EM])==RS2(ir[ID])) &&
+  (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use rrs1_gpr
+);
 
 // Execute and Memory access stage ========================================
 wire[ 5-1:0]  op_em = OPCODE(ir[EM]);
-wire[32-1:0]  rslt;
+wire[32-1:0]  arslt;
 reg [32-1:0]  urslt, jrslt, crslt;
 
 // rrs1 rrs2 forwarding
 wire[32-1:0]  rrs1_fwd = RS1(ir[EM])==RD(ir[WB]) && GPRWE(ir[WB]) ? rrd : rrs1;
 wire[32-1:0]  rrs2_fwd = RS2(ir[EM])==RD(ir[WB]) && GPRWE(ir[WB]) ? rrd : rrs2;
 
-// R-type or I-type instructions result
-wire[32-1:0]  opd1 = rrs1_fwd;
-wire[32-1:0]  opd2 = OPCODE(ir[EM])==`OP ? rrs2_fwd : IIMM(ir[EM]);
+// R-type and I-type instructions result
+wire[32-1:0]  operand1 = rrs1_fwd;
+wire[32-1:0]  operand2 = OPCODE(ir[EM])==`OP ? rrs2_fwd : IIMM(ir[EM]);
 ALU alu (
   .clk(clk),
   .rst(rst),
   .opcode(OPCODE(ir[EM])),
   .funct3(FUNCT3(ir[EM])),
   .funct7(FUNCT7(ir[EM])),
-  .opd1(opd1),
-  .opd2(opd2),
-  .rslt(rslt)
+  .opd1(operand1),
+  .opd2(operand2),
+  .rslt(arslt)
 );
 // AUIPC and LUI result
-always @(posedge clk) urslt <= UIMM(ir[EM]) + (ir[EM][5] ? 0 : pc[EM]);
+always @(posedge clk) urslt <= UIMM(ir[EM]) + (ir[EM][5] ? 32'h0 : pc[EM]);
 // JAL and JALR result
 always @(posedge clk) jrslt <= pc[EM]+4;  // rrd<-pc+4
 // CSR* result
@@ -183,17 +190,15 @@ always @(posedge clk) begin
   if(op_em==`SYSTEM) begin
     if(FUNCT3(ir[EM])==3'h0) begin
       case(ir[EM][21])
-        // ECALL
-        1'b0: begin mepc<=pc[EM]; mcause<=32'hb; end
-        // MRET
-        1'b1: begin end
+        1'b0: begin mepc<=pc[EM]; mcause<=32'hb; end // ECALL
+        1'b1: begin end // MRET
       endcase
     end else begin
       case(ir[EM][20+:12])
-        12'h305: `CSRUPDATE(mtvec,    rrs1_fwd,ir[EM])
-        12'h340: `CSRUPDATE(mscratch, rrs1_fwd,ir[EM])
-        12'h341: `CSRUPDATE(mepc,     rrs1_fwd,ir[EM])
-        12'h342: `CSRUPDATE(mcause,   rrs1_fwd,ir[EM])
+        12'h305: `CSRUPDATE(mtvec,    rrs1_fwd, ir[EM])
+        12'h340: `CSRUPDATE(mscratch, rrs1_fwd, ir[EM])
+        12'h341: `CSRUPDATE(mepc,     rrs1_fwd, ir[EM])
+        12'h342: `CSRUPDATE(mcause,   rrs1_fwd, ir[EM])
         default: begin end
       endcase
     end
@@ -201,36 +206,41 @@ always @(posedge clk) begin
 end
 
 // result selector
-reg sel_dmem, sel_urslt, sel_jrslt, sel_crslt;
+reg sel_mem, sel_urslt, sel_jrslt, sel_crslt;
 always @(posedge clk) begin
-  sel_dmem  <= op_em==`LOAD;
+  sel_mem   <= op_em==`LOAD;
   sel_urslt <= op_em==`AUIPC || op_em==`LUI;
   sel_jrslt <= op_em==`JALR  || op_em==`JAL;
   sel_crslt <= op_em==`SYSTEM;
 end
 
-// branch instructions
-wire[32-1:0]  btarget = ~32'h1 & (
+// branch
+assign  btarget = ~32'h1 & (
   op_em==`JAL     ? btarget_jal     :
   op_em==`JALR    ? btarget_jalr    :
   op_em==`BRANCH  ? btarget_branch  :
   isecall         ? mtvec & ~32'b11 : // don't support vectored trap address
   ismret          ? mepc            :
                     32'hxxxxxxxx);
-wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
-                (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]));
-wire  bflush  = btaken && pc[ID]!=btarget;
+assign  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
+                  (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]));
+assign  bflush  = btaken && pc[ID]!=btarget;
 
 // mem I/F
-assign  mem_addr      = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-assign  mem_oe        = MEMOE(ir[EM]);
-assign  mem_wdata     = rrs2_fwd;
-assign  mem_we        = MEMWE(ir[EM]);
+assign  mem_addr    = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
+assign  mem_oe      = MEMOE(ir[EM]);
+assign  mem_wdata   = rrs2_fwd;
+assign  mem_we      = MEMWE(ir[EM]);
+
+wire    mem_miss;
+reg     prev_mem_read=1'b0;
+always @(posedge clk) prev_mem_read <= mem_miss || (mem_oe && !mem_we[0]);
+assign  mem_miss = !rst && prev_mem_read && !mem_ready;
 
 assign  stall_req[EM] = 1'b0;
 
 // Write Back stage ========================================
-wire[32-1:0]  mem_rdata_masked =
+wire[32-1:0]  mem_rdata_extended =
   FUNCT3(ir[WB])==`LB   ? {{24{mem_rdata[ 7]}}, mem_rdata[0+: 8]} :
   FUNCT3(ir[WB])==`LH   ? {{16{mem_rdata[15]}}, mem_rdata[0+:16]} :
   FUNCT3(ir[WB])==`LW   ?                       mem_rdata[0+:32]  :
@@ -238,21 +248,14 @@ wire[32-1:0]  mem_rdata_masked =
   FUNCT3(ir[WB])==`LHU  ? {{16{         1'b0}}, mem_rdata[0+:16]} :
                           32'hxxxxxxxx;
 
-assign  rrd           =
-  sel_dmem  ? mem_rdata_masked :
+assign  rrd     =
+  sel_mem   ? mem_rdata_extended :
   sel_urslt ? urslt :
   sel_jrslt ? jrslt :
   sel_crslt ? crslt :
-              rslt;
+              arslt;
 
-reg     prev_dmem_read=1'b0;
-always @(posedge clk) prev_dmem_read <=
-  rst         ? 1'b0 :
-  !dmem_miss  ? mem_oe && !mem_we[0] :
-                1'b1;//==prev_dmem_read;
-
-wire    dmem_miss = prev_dmem_read & !mem_ready;
-assign  stall_req[WB] = !rst && dmem_miss;
+assign  stall_req[WB] = mem_miss;
 
 
 
@@ -282,10 +285,10 @@ endfunction
 function[   0:0]  GPRWE (input[32-1:0] inst); GPRWE  =  // gpr write enable
   RD(inst)!=5'd0 && OPCODE(inst)!=`STORE && OPCODE(inst)!=`BRANCH;
 endfunction
-function[   0:0]  MEMOE (input[32-1:0] inst); MEMOE  =  // dmem output enable
+function[   0:0]  MEMOE (input[32-1:0] inst); MEMOE  =  // mem output enable
   OPCODE(inst)==`LOAD || OPCODE(inst)==`STORE;
 endfunction
-function[ 4-1:0]  MEMWE (input[32-1:0] inst); MEMWE  =  // dmem write enable
+function[ 4-1:0]  MEMWE (input[32-1:0] inst); MEMWE  =  // mem write enable
   OPCODE(inst)!=`STORE  ? 4'b0000 : // not store
   FUNCT3(inst)==`SB     ? 4'b0001 :
   FUNCT3(inst)==`SH     ? 4'b0011 :

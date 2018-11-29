@@ -173,14 +173,14 @@ RAM #(.SCALE(27)) dmem (
   .rst(rst),
 
   .oe0(dmem_oe),
-  .addr0(mem_addr),
+  .addr0(mem_addr[0+:27]),
   .wdata0(mem_wdata),
   .we0(dmem_we),
   .rdata0(dmem_rdata),
 
   .oe1(1'b0),
   .addr1(27'h0),
-  .wdata1(),
+  .wdata1(32'h0),
   .we1(4'b0),
   .rdata1()
 );
