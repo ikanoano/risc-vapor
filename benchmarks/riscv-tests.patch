@@ -1,5 +1,5 @@
 diff --git a/benchmarks/Makefile b/benchmarks/Makefile
-index fb0d297..4523bc0 100644
+index fb0d297..bb204ce 100644
 --- a/benchmarks/Makefile
 +++ b/benchmarks/Makefile
 @@ -4,7 +4,7 @@
@@ -20,7 +20,8 @@ index fb0d297..4523bc0 100644
  	spmv \
 -	mt-vvadd \
 -	mt-matmul \
- 	pmp \
+-	pmp \
++#	pmp \
 +#	mm \
 +#	mt-vvadd \
 +#	mt-matmul \
@@ -40,7 +41,7 @@ index fb0d297..4523bc0 100644
  RISCV_SIM ?= spike --isa=rv$(XLEN)gc
  
 diff --git a/benchmarks/common/crt.S b/benchmarks/common/crt.S
-index d75e81e..ca412aa 100644
+index d75e81e..58472cb 100644
 --- a/benchmarks/common/crt.S
 +++ b/benchmarks/common/crt.S
 @@ -133,7 +133,14 @@ _start:
@@ -53,14 +54,14 @@ index d75e81e..ca412aa 100644
 +  # halt
 +  nop
 +  lui a5,   0xf0000
-+  sw  zero, 0(a5)
++  sw  a0,   0(a5)
 +  nop
 +  nop
  
    .align 2
  trap_entry:
 diff --git a/benchmarks/common/syscalls.c b/benchmarks/common/syscalls.c
-index 0a7d6b7..3a37120 100644
+index 0a7d6b7..4adb551 100644
 --- a/benchmarks/common/syscalls.c
 +++ b/benchmarks/common/syscalls.c
 @@ -3,7 +3,7 @@
@@ -134,7 +135,8 @@ index 0a7d6b7..3a37120 100644
 +  */
  }
  
- void _init(int cid, int nc)
+-void _init(int cid, int nc)
++int _init(int cid, int nc)
  {
    init_tls();
 +  init_bss();
@@ -146,7 +148,7 @@ index 0a7d6b7..3a37120 100644
      printstr(buf);
  
 -  exit(ret);
-+  //exit(ret);
++  return ret;
  }
  
  #undef putchar
