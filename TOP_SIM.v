@@ -3,7 +3,7 @@
 `include "INST.v"
 
 // Top module for simulation
-module TOP ();
+module TOP_SIM ();
 localparam  ISCALE  = 16-2;
 localparam  DSCALE  = 27-2;
 reg clk=0, rst=1;

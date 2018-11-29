@@ -8,9 +8,9 @@ OBJS			?=\
 	PROCESSOR.v\
 	RAM.v\
 	ROM.v\
-	TOP.v\
+	TOP_SIM.v\
 	UTIL.v
-IVFLAGS		?= -Wall -g2005 -s TOP
+IVFLAGS		?= -Wall -g2005 -s TOP_SIM
 RUNFLAGS	?= +IMAGE=$(IMAGE) +MAX_CYCLE=$(MAX_CYCLE) +DUMP=$(DUMP)
 BENCHMARK	?= dhrystone
 
