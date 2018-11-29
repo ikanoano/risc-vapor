@@ -165,7 +165,7 @@ always @(posedge clk) begin
   case(ir[EM][20+:12])
     12'hf14: crslt <= mhartid;
     12'h301: crslt <= misa;
-    12'h305: crslt <= mtvec;
+    12'h305: crslt <= mtvec & ~2'b11;
     12'h340: crslt <= mscratch;
     12'h341: crslt <= mepc;
     12'h342: crslt <= mcause;
@@ -209,8 +209,8 @@ wire[32-1:0]  btarget = ~32'h1 & (
   op_em==`JAL     ? btarget_jal     :
   op_em==`JALR    ? btarget_jalr    :
   op_em==`BRANCH  ? btarget_branch  :
-  isecall         ? (mtvec[0] ? {mtvec[2+:30]+30'hb, 2'h0} : mtvec) :
-  ismret          ? mepc                :
+  isecall         ? mtvec & ~2'b11  : // don't support vectored trap address
+  ismret          ? mepc            :
                     32'hxxxxxxxx);
 wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
                 (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]));
