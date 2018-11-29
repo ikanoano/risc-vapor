@@ -144,7 +144,7 @@ reg           mmio_ready = 1'b0;
 always @(posedge clk) begin
   if(mmio_oe && mmio_we) begin  // write
     case (mem_addr)
-      32'hf0000000: begin $display("Halt!"); $finish(); end
+      32'hf0000000: begin $display("Halt: a0 was %x", p.gpr.r[10]); $finish(); end
       32'hf0000100: begin
         if(TRACE) $display("output: %s", mem_wdata[0+:8]);
         else      $write("%s", mem_wdata[0+:8]);
