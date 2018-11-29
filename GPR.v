@@ -18,8 +18,8 @@ module GPR(
 
 reg [31:0]  r[0:31];
 
-assign rrs1 = rs1!=0 && rs1==rd && we ? rrd : r[rs1];
-assign rrs2 = rs2!=0 && rs2==rd && we ? rrd : r[rs2];
+assign rrs1 = rs1==rd && we ? rrd : r[rs1];
+assign rrs2 = rs2==rd && we ? rrd : r[rs2];
 
 always @(posedge clk) begin
   if(we) r[rd] <= rrd;
