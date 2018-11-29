@@ -100,14 +100,10 @@ GPR gpr(
   .we(GPRWE(ir[WB]))
 );
 
-reg [32-1:0]  rrs1, rrs2, opd1, opd2;
+reg [32-1:0]  rrs1, rrs2;
 always @(posedge clk) begin
   rrs1    <= rrs1_gpr;
   rrs2    <= rrs2_gpr;
-
-  // ALU operands
-  opd1    <= rrs1_gpr;
-  opd2    <= OPCODE(ir[ID])==`OP ? rrs2_gpr : IIMM(ir[ID]);
 end
 
 reg     prev_imem_read=1'b0;
@@ -117,8 +113,11 @@ assign  imem_miss = prev_imem_read & !imem_ready;
 // stall if (ir[ID] is not ready) or (source operand is still in EM stage)
 // TUNE: deal with the case where rs2 or rs1 is not used
 wire[5-1:0]   rd_em=RD(ir[EM]), rs1_id=RS1(ir[ID]), rs2_id=RS2(ir[ID]);
-assign  stall_req[ID] = !rst && (imem_miss ||
-  (GPRWE(ir[EM]) && (rd_em==rs1_id || rd_em==rs2_id)));
+assign  stall_req[ID] = !rst && (imem_miss || (
+  GPRWE(ir[EM]) &&
+  (rd_em==rs1_id || rd_em==rs2_id) &&
+  (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use rrs1_gpr
+));
 
 // prefetch values used by branch instructions
 reg           isecall, ismret;
@@ -144,7 +143,13 @@ wire[ 5-1:0]  op_em = OPCODE(ir[EM]);
 wire[32-1:0]  rslt;
 reg [32-1:0]  urslt, jrslt, crslt;
 
+// rrs1 rrs2 forwarding
+wire[32-1:0]  rrs1_fwd = RS1(ir[EM])==RD(ir[WB]) && GPRWE(ir[WB]) ? rrd : rrs1;
+wire[32-1:0]  rrs2_fwd = RS2(ir[EM])==RD(ir[WB]) && GPRWE(ir[WB]) ? rrd : rrs2;
+
 // R-type or I-type instructions result
+wire[32-1:0]  opd1 = rrs1_fwd;
+wire[32-1:0]  opd2 = OPCODE(ir[EM])==`OP ? rrs2_fwd : IIMM(ir[EM]);
 ALU alu (
   .clk(clk),
   .rst(rst),
@@ -165,7 +170,7 @@ always @(posedge clk) begin
   case(ir[EM][20+:12])
     12'hf14: crslt <= mhartid;
     12'h301: crslt <= misa;
-    12'h305: crslt <= mtvec & ~2'b11;
+    12'h305: crslt <= mtvec & ~32'b11;
     12'h340: crslt <= mscratch;
     12'h341: crslt <= mepc;
     12'h342: crslt <= mcause;
@@ -185,10 +190,10 @@ always @(posedge clk) begin
       endcase
     end else begin
       case(ir[EM][20+:12])
-        12'h305: `CSRUPDATE(mtvec)
-        12'h340: `CSRUPDATE(mscratch)
-        12'h341: `CSRUPDATE(mepc)
-        12'h342: `CSRUPDATE(mcause)
+        12'h305: `CSRUPDATE(mtvec,    rrs1_fwd,ir[EM])
+        12'h340: `CSRUPDATE(mscratch, rrs1_fwd,ir[EM])
+        12'h341: `CSRUPDATE(mepc,     rrs1_fwd,ir[EM])
+        12'h342: `CSRUPDATE(mcause,   rrs1_fwd,ir[EM])
         default: begin end
       endcase
     end
@@ -209,7 +214,7 @@ wire[32-1:0]  btarget = ~32'h1 & (
   op_em==`JAL     ? btarget_jal     :
   op_em==`JALR    ? btarget_jalr    :
   op_em==`BRANCH  ? btarget_branch  :
-  isecall         ? mtvec & ~2'b11  : // don't support vectored trap address
+  isecall         ? mtvec & ~32'b11 : // don't support vectored trap address
   ismret          ? mepc            :
                     32'hxxxxxxxx);
 wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
@@ -217,9 +222,9 @@ wire  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
 wire  bflush  = btaken && pc[ID]!=btarget;
 
 // mem I/F
-assign  mem_addr      = rrs1 + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
+assign  mem_addr      = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
 assign  mem_oe        = MEMOE(ir[EM]);
-assign  mem_wdata     = rrs2;
+assign  mem_wdata     = rrs2_fwd;
 assign  mem_we        = MEMWE(ir[EM]);
 
 assign  stall_req[EM] = 1'b0;

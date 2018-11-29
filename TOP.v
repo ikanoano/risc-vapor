@@ -294,9 +294,9 @@ always @(posedge clk) if(TRACE) begin
 
   if(ir!=`NOP && p.USERD(ir))   $sformat(rdstr, "%s", REGNAME(p.RD(ir)));
   else                          rdstr = {3{SPACE}};
-  if(ir!=`NOP && p.USERS1(ir))  $sformat(rs1str, "%s(h%x)", REGNAME(p.RS1(ir)), p.rrs1);
+  if(ir!=`NOP && p.USERS1(ir))  $sformat(rs1str, "%s(h%x)", REGNAME(p.RS1(ir)), p.rrs1_fwd);
   else                          rs1str = {3+3+8{SPACE}};
-  if(ir!=`NOP && p.USERS2(ir))  $sformat(rs2str, "%s(h%x)", REGNAME(p.RS2(ir)), p.rrs2);
+  if(ir!=`NOP && p.USERS2(ir))  $sformat(rs2str, "%s(h%x)", REGNAME(p.RS2(ir)), p.rrs2_fwd);
   else                          rs2str = {3+3+8{SPACE}};
   if(ir!=`NOP && p.USEIMM(ir))  $sformat(immstr, "imm(h%x)", p.IMM(ir));
   else                          immstr = {3+3+8{SPACE}};
