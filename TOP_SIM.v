@@ -91,14 +91,14 @@ end
 wire[16-1:0]  imem_addr;
 wire          imem_oe;
 wire[32-1:0]  imem_rdata;
-reg           imem_ready=0;
+reg           imem_valid=0;
 
 wire[32-1:0]  mem_addr;
 wire          mem_oe;
 wire[32-1:0]  mem_wdata;
 wire[ 4-1:0]  mem_we;
 wire[32-1:0]  mem_rdata;
-wire          mem_ready;
+wire          mem_valid;
 PROCESSOR p (
   .clk(clk),
   .rst(rst),
@@ -106,14 +106,14 @@ PROCESSOR p (
   .imem_addr(imem_addr),
   .imem_oe(imem_oe),
   .imem_rdata(imem_rdata),
-  .imem_ready(imem_ready),
+  .imem_valid(imem_valid),
 
   .mem_addr(mem_addr),
   .mem_oe(mem_oe),
   .mem_wdata(mem_wdata),
   .mem_we(mem_we),
   .mem_rdata(mem_rdata),
-  .mem_ready(mem_ready)
+  .mem_valid(mem_valid)
 );
 
 // MEMO: It is better to insert FIFO to store requests for memory read,
@@ -134,7 +134,7 @@ ROM #(.SCALE(16)) imem (
   .addr1(16'h0),
   .rdata1()
 );
-always @(posedge clk) imem_ready <= imem_oe;  // never misses
+always @(posedge clk) imem_valid <= imem_oe;  // never misses
 
 // memory mapped IO
 wire          mmio_oe = mem_oe && mem_addr[28+:4]==4'hf;
@@ -167,7 +167,7 @@ end
 wire          dmem_oe = mem_oe && mem_addr<32'h08000000;
 wire[ 4-1:0]  dmem_we = {4{dmem_oe}} & mem_we;
 wire[32-1:0]  dmem_rdata;
-reg           dmem_ready = 1'b0;
+reg           dmem_valid = 1'b0;
 RAM #(.SCALE(27)) dmem (
   .clk(clk),
   .rst(rst),
@@ -184,12 +184,12 @@ RAM #(.SCALE(27)) dmem (
   .we1(4'b0),
   .rdata1()
 );
-always @(posedge clk) dmem_ready <= dmem_oe;  // never misses
+always @(posedge clk) dmem_valid <= dmem_oe;  // never misses
 
-assign  mem_ready = mmio_ready | dmem_ready;
+assign  mem_valid = mmio_ready | dmem_valid;
 assign  mem_rdata =
   mmio_ready  ? mmio_rdata  :
-  dmem_ready  ? dmem_rdata  :
+  dmem_valid  ? dmem_rdata  :
                 32'hxxxxxxxx;
 
 always @(posedge clk) begin

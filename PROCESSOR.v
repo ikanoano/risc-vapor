@@ -10,13 +10,14 @@ module PROCESSOR (
   output  wire[16-1:0]  imem_addr,
   output  wire          imem_oe,
   input   wire[32-1:0]  imem_rdata,
-  input   wire          imem_ready,
+  input   wire          imem_valid,
 
   output  wire[32-1:0]  mem_addr,
   output  wire          mem_oe,
   output  wire[32-1:0]  mem_wdata,
   output  wire[ 4-1:0]  mem_we,
   input   wire[32-1:0]  mem_rdata,
+  input   wire          mem_valid,
   input   wire          mem_ready
 );
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
@@ -93,7 +94,7 @@ assign  imem_oe     = !stall[IF];
 wire    imem_miss;
 reg     prev_imem_read=1'b0;
 always @(posedge clk) prev_imem_read <= imem_miss || imem_oe;
-assign  imem_miss = !rst & prev_imem_read & !imem_ready;
+assign  imem_miss = !rst & prev_imem_read & !imem_valid;
 
 assign  stall_req[IF] = 1'b0;
 
@@ -235,9 +236,9 @@ assign  mem_we      = MEMWE(ir[EM]);
 wire    mem_miss;
 reg     prev_mem_read=1'b0;
 always @(posedge clk) prev_mem_read <= mem_miss || (mem_oe && !mem_we[0]);
-assign  mem_miss = !rst && prev_mem_read && !mem_ready;
+assign  mem_miss = !rst && prev_mem_read && !mem_valid;
 
-assign  stall_req[EM] = 1'b0;
+assign  stall_req[EM] = mem_oe & ~mem_ready;  // cannot perform memory access
 
 // Write Back stage ========================================
 wire[32-1:0]  mem_rdata_extended =
