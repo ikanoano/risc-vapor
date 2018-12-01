@@ -72,14 +72,20 @@ initial begin
 
   for(i=0; i<2**ISCALE; i=i+1) begin
     dummy = $fread(fdata, fd);
-    imem.rom.ram[i] = {fdata[0+:8], fdata[8+:8], fdata[16+:8], fdata[24+:8]};
+    imem.rom.ram3[i]  = fdata[ 0+:8];
+    imem.rom.ram2[i]  = fdata[ 8+:8];
+    imem.rom.ram1[i]  = fdata[16+:8];
+    imem.rom.ram0[i]  = fdata[24+:8];
   end
 
   dummy = $rewind(fd);
 
   for(i=0; i<2**DSCALE && !$feof(fd); i=i+1) begin
     dummy = $fread(fdata, fd);
-    dmem.ram[i] = {fdata[0+:8], fdata[8+:8], fdata[16+:8], fdata[24+:8]};
+    dmem.ram3[i]  = fdata[ 0+:8];
+    dmem.ram2[i]  = fdata[ 8+:8];
+    dmem.ram1[i]  = fdata[16+:8];
+    dmem.ram0[i]  = fdata[24+:8];
   end
 
   //dummy = $fread(imem.rom.ram, fd); // simple but invalid indianness
@@ -113,7 +119,9 @@ PROCESSOR p (
   .mem_wdata(mem_wdata),
   .mem_we(mem_we),
   .mem_rdata(mem_rdata),
-  .mem_valid(mem_valid)
+  .mem_valid(mem_valid),
+  .mem_ready(1'b1),
+  .cycle()
 );
 
 // MEMO: It is better to insert FIFO to store requests for memory read,

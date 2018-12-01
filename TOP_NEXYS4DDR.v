@@ -7,8 +7,8 @@ module TOP_NEXYS4DDR (
   input   wire[ 5-1:0]  btn,  // {down, right, left, up, center}
   input   wire[16-1:0]  sw,
   output  reg [16-1:0]  led,
-  output  reg [6:0]     cs,   // 7-seg cathode segments
-  output  reg [7:0]     an,   // 7-seg common anode
+  output  wire[6:0]     cs,   // 7-seg cathode segments
+  output  wire[7:0]     an,   // 7-seg common anode
   input   wire          uart_rxd,
   output  wire          uart_txd,
   inout   wire[15:0]    ddr2_dq,
@@ -139,7 +139,7 @@ RAM #(.SCALE(16)) imem (
   .rst(rst),
 
   .oe0(imem_oe | init_we),
-  .addr0(init_done ? imem_addr : init_waddr),
+  .addr0({init_done ? imem_addr[2+:14] : init_waddr[2+:14], 2'b00}),
   .rdata0(imem_rdata),
   .wdata0(init_wdata),
   .we0({4{init_we && init_waddr<32'h00010000}}),
@@ -159,9 +159,9 @@ reg [32-1:0]  mmio_rdata = 0;
 reg           mmio_valid = 1'b0;
 always @(posedge clk) begin
   // write halt
-  if(mmio_we && mem_addr==32'hf0000000) begin /* to be implemented */ end
+  if(mmio_we[0] && mem_addr[0+:16]==16'h0000) begin /* to be implemented */ end
   // write to_host
-  if(mmio_we && mem_addr==32'hf0000100) begin
+  if(mmio_we[0] && mem_addr[0+:16]==16'h0100) begin
     tx_wdata  <= mem_wdata[0+:8];
     tx_we     <= 1'b1;
   end else begin
@@ -169,10 +169,10 @@ always @(posedge clk) begin
   end
   // read
   if(mmio_oe && !mmio_we[0]) begin
-    case (mem_addr)
+    case (mem_addr[0+:16])
       // return non zero when TX is available
-      32'hf0000100: begin mmio_valid <= 1'b1; mmio_rdata <= tx_ready; end
-      default     : begin mmio_valid <= 1'b1; mmio_rdata <= 32'h0; end
+      16'h0100: begin mmio_valid <= 1'b1; mmio_rdata <= tx_ready; end
+      default : begin mmio_valid <= 1'b1; mmio_rdata <= 32'h0; end
     endcase
   end else begin
     mmio_valid  <= 1'b0;
