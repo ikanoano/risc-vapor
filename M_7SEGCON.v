@@ -59,7 +59,9 @@ module M_7SEGCON (w_clk, w_din, r_sg, r_an);
     end     
   end
   wire [6:0] w_segments;
-  m_7segled m_7segled (r_in, w_segments);
+  M_7SEGLED m_7segled (r_in, w_segments);
   always@(posedge w_clk) r_sg <= ~w_segments;
 endmodule
 /******************************************************************************************************/
+
+`default_nettype wire

@@ -23,3 +23,5 @@ module ROM #(
     oe1, addr1, 0, 4'h0, rdata1
   );
 endmodule
+
+`default_nettype wire

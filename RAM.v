@@ -84,3 +84,5 @@ module RAM #(
 
   initial if(SCALE<3) begin $display("SCALE must be >=3"); $finish(); end
 endmodule
+
+`default_nettype wire

@@ -30,3 +30,5 @@ integer i;
 initial for(i=0; i<32; i=i+1) r[i]=0;
 
 endmodule
+
+`default_nettype wire

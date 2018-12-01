@@ -3,12 +3,11 @@
 
 module DRAM (
   input   wire          clk,
-  input   wire          sys_rst,
-  input   wire          aresetn,
-  input   wire          clk_ref_200,
+  input   wire          rst_mig,
+  input   wire          clk_mig_200,
 
-  output  wire          init_calib_complete,
-  output  wire          mmcm_locked,
+  output  wire          calib_done,
+  output  wire          locked_mig,
 
   input   wire          dram_oe,
   input   wire[32-1:0]  dram_addr,
@@ -102,14 +101,12 @@ module DRAM (
     end
   end
 
-
   MIG_BLOCK mb (
-    .sys_clk_i(clk),
-    .sys_rst(sys_rst),
-    .aresetn(aresetn),
-    .clk_ref_i(clk_ref_200),
-    .init_calib_complete(init_calib_complete),
-    .mmcm_locked(mmcm_locked),
+    .clk_axi(clk),
+    .clk_mig(clk_mig_200),  // fixed 200MHz
+    .rst_mig(rst_mig),
+    .calib_done(calib_done),
+    .locked_mig(locked_mig),
     // read address channel
     .S_AXI_araddr(S_AXI_araddr),
     .S_AXI_arburst(2'b00),
@@ -153,19 +150,21 @@ module DRAM (
     .S_AXI_bresp(),
     .S_AXI_bvalid(S_AXI_bvalid),
     // ddr2 I/F
-    .ddr2_sdram_addr(ddr2_addr),
-    .ddr2_sdram_ba(ddr2_ba),
-    .ddr2_sdram_cas_n(ddr2_cas_n),
-    .ddr2_sdram_ck_n(ddr2_ck_n),
-    .ddr2_sdram_ck_p(ddr2_ck_p),
-    .ddr2_sdram_cke(ddr2_cke),
-    .ddr2_sdram_cs_n(ddr2_cs_n),
-    .ddr2_sdram_dm(ddr2_dm),
-    .ddr2_sdram_dq(ddr2_dq),
-    .ddr2_sdram_dqs_n(ddr2_dqs_n),
-    .ddr2_sdram_dqs_p(ddr2_dqs_p),
-    .ddr2_sdram_odt(ddr2_odt),
-    .ddr2_sdram_ras_n(ddr2_ras_n),
-    .ddr2_sdram_we_n(ddr2_we_n)
+    .ddr2_addr(ddr2_addr),
+    .ddr2_ba(ddr2_ba),
+    .ddr2_cas_n(ddr2_cas_n),
+    .ddr2_ck_n(ddr2_ck_n),
+    .ddr2_ck_p(ddr2_ck_p),
+    .ddr2_cke(ddr2_cke),
+    .ddr2_cs_n(ddr2_cs_n),
+    .ddr2_dm(ddr2_dm),
+    .ddr2_dq(ddr2_dq),
+    .ddr2_dqs_n(ddr2_dqs_n),
+    .ddr2_dqs_p(ddr2_dqs_p),
+    .ddr2_odt(ddr2_odt),
+    .ddr2_ras_n(ddr2_ras_n),
+    .ddr2_we_n(ddr2_we_n)
   );
 endmodule
+
+`default_nettype wire

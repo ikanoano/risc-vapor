@@ -142,7 +142,7 @@ wire[ 4-1:0]  mmio_we = {4{mmio_oe}} & mem_we;
 reg [32-1:0]  mmio_rdata = 0;
 reg           mmio_ready = 1'b0;
 always @(posedge clk) begin
-  if(mmio_oe && mmio_we) begin  // write
+  if(mmio_oe && mmio_we[0]) begin  // write
     case (mem_addr)
       32'hf0000000: begin $display("Halt: a0 was %x", p.gpr.r[10]); $finish(); end
       32'hf0000100: begin
@@ -152,7 +152,7 @@ always @(posedge clk) begin
       default : begin end
     endcase
   end
-  if(mmio_oe && !mmio_we) begin // read
+  if(mmio_oe && !mmio_we[0]) begin // read
     case (mem_addr)
       // return non zero when TX is available (always available in testbench)
       32'hf0000100: begin mmio_ready <= 1'b1; mmio_rdata <= 32'b1; end
@@ -364,7 +364,6 @@ function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =
               "???";
 endfunction
 
-
-
 endmodule
 
+`default_nettype wire

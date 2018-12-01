@@ -8,10 +8,11 @@
 
 module UARTTX #(
   parameter SERIAL_WCNT = 50
-) (CLK, RST_X, DATA, WE, TXD, READY);
-    input       CLK, RST_X, WE;
-    input [7:0] DATA;
-    output reg  TXD, READY;
+) (
+  input   wire      CLK, RST_X, WE,
+  input   wire[7:0] DATA,
+  output  reg       TXD, READY
+);
 
     reg [8:0]   cmd;
     reg [11:0]  waitnum;
@@ -54,12 +55,12 @@ endmodule
 /******************************************************************************************************/
 module UARTRX #(
   parameter SERIAL_WCNT = 50
-) (CLK, RST_X, RXD, DATA, EN);
-    input          CLK, RST_X, RXD; // clock, reset, RS232C input
-    output [7:0]   DATA;            // 8bit output data
-    output reg     EN;              // 8bit output data enable
+) (
+  input   wire      CLK, RST_X, RXD, // clock, reset, RS232C input
+  output  reg[7:0]  DATA,            // 8bit output data
+  output  reg       EN               // 8bit output data enable
+);
 
-    reg    [7:0]   DATA;
     reg    [3:0]   stage;
     reg    [12:0]  cnt;             // counter to latch D0, D1, ..., D7
     reg    [11:0]  cnt_start;       // counter to detect the Start Bit
@@ -93,3 +94,4 @@ module UARTRX #(
       end
 endmodule
 
+`default_nettype wire

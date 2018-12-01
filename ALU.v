@@ -69,3 +69,5 @@ assign  rslt =
                         32'hXXXX;
 
 endmodule
+
+`default_nettype wire

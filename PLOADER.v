@@ -5,12 +5,13 @@
 /******************************************************************************************************/
 module PLOADER #(
     parameter PROG_SIZE = 512*1024
-) (CLK, RST_X, RXD, ADDR, DATA, WE, DONE);
-    input              CLK, RST_X, RXD;
-    output reg [31:0]  ADDR;
-    output reg [31:0]  DATA;
-    output reg         WE;
-    output reg         DONE; // program load is done
+) (
+  input   wire        CLK, RST_X, RXD,
+  output  reg [31:0]  ADDR,
+  output  reg [31:0]  DATA,
+  output  reg         WE,
+  output  reg         DONE  // program load is done
+);
 
     reg [31:0] waddr; // memory write address
 
@@ -36,3 +37,4 @@ module PLOADER #(
     end
 endmodule
 
+`default_nettype wire

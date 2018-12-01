@@ -18,7 +18,9 @@ module PROCESSOR (
   output  wire[ 4-1:0]  mem_we,
   input   wire[32-1:0]  mem_rdata,
   input   wire          mem_valid,
-  input   wire          mem_ready
+  input   wire          mem_ready,
+
+  output  wire[32-1:0]  cycle
 );
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
 localparam  BOOT = 32'h00000000;
@@ -85,6 +87,7 @@ reg [32-1:0]  mtvec=BOOT;                                             // h305
 reg [32-1:0]  mscratch, mepc, mcause;                                 // h34x
 reg [32-1:0]  mcycle, mcycleh;                                        // hbxx
 always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle}+64'h1);
+assign        cycle = mcycle;
 
 // Instruction Fetch stage ========================================
 // imem I/F
@@ -320,3 +323,5 @@ function[ 1-1:0]  USEIMM(input[32-1:0] inst); USEIMM =
 endfunction
 
 endmodule
+
+`default_nettype wire
