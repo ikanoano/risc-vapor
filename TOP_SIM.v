@@ -201,7 +201,6 @@ always @(posedge clk) begin
   dmem_read       <= dmem_oe && !dmem_we;
   dmem_valid      <= dmem_read;
   dmem_rdata_hold <= dmem_rdata;
-  if(TRACE && dmem_read) #1 $display("miss");
 end
 
 assign  mem_valid = mmio_ready | dmem_valid;
@@ -237,15 +236,15 @@ reg [14*8-1:0]  immstr;
 reg [32*8-1:0]  branchstr;
 reg [32*8-1:0]  memstr;
 reg [32*8-1:0]  stallstr;
-reg [32*8-1:0]  ibstr;
 reg [256*8-1:0] str_em="";
 reg [32*8-1:0]  wbstr;
 always @(posedge clk) if(TRACE && !rst) begin : trace
   if(|p.stall)    $sformat(stallstr, "s(b%b)", p.stall);
   else            stallstr = "";
-  if(|p.insertb)  $sformat(ibstr, "b(b%b)", p.insertb);
-  else            ibstr = "";
-  $write("%8s %8s | ", stallstr, ibstr);
+  //if(|p.insertb)  $sformat(ibstr, "b(b%b)", p.insertb);
+  //else            ibstr = "";
+  $write("%8s | ", stallstr);
+  if(TRACE && dmem_read) $write("dmem miss");
   if(p.stall[p.WB]) begin
     $display("");
     disable trace;  // early return

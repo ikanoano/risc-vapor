@@ -11,7 +11,7 @@ for elf in ./testbin/*.elf; do
   if grep -q 'output: ' $trace && grep -q 'Abort' $trace; then
     result="OK"
     pass=$((pass+1))
-    rm $trace
+    #rm $trace
   else
     result="NG -> $trace"
   fi
