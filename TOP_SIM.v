@@ -6,7 +6,7 @@
 module TOP_SIM ();
 localparam  ISCALE  = 16-2;
 localparam  DSCALE  = 27-2;
-reg clk=0, rst=1;
+reg clk=0, rst=0;
 
 // runtime parameter
 integer         MAX_CYCLE;
@@ -34,16 +34,16 @@ end
 // assert / deassert reset
 initial begin
   $display("start");
+  #10
   rst = 1;
   #520;
   $display("deassert reset");
   rst = 0;
 end
 
-// count cycle
-integer cycle = 0;
+// cycle
+wire[64-1:0]  cycle = {n4.p.mcycleh, n4.p.mcycle};
 always @(posedge clk) begin
-  cycle <= cycle + 1;
   if(cycle>MAX_CYCLE) begin
     $display("");
     $display("Abort! Cycle limit %d exceeded.", MAX_CYCLE);
@@ -56,10 +56,10 @@ initial begin
   #1
   if(DUMP) begin
     $dumpfile("/tmp/wave.vcd");
-    $dumpvars(1);
-    $dumpvars(1, p.pc[0], p.pc[1], p.pc[2], p.pc[3]);
-    $dumpvars(1,          p.ir[1], p.ir[2], p.ir[3]);
-    $dumpvars(1, p, p.gpr);
+    $dumpvars(1, n4.p.pc[0], n4.p.pc[1], n4.p.pc[2], n4.p.pc[3]);
+    $dumpvars(1,             n4.p.ir[1], n4.p.ir[2], n4.p.ir[3]);
+    $dumpvars(1, n4.p, n4.p.gpr);
+    $dumpvars(1, n4);
   end
 end
 
@@ -72,151 +72,68 @@ initial begin
   fd = $fopen(IMAGE, "rb");
   if(!fd) begin $display("failed to open image: %0s", IMAGE); $finish(); end
 
+  //dummy = $fread(n4.imem.rom.ram, fd); // simple but invalid indianness
+  //dummy = $fread(dmem.ram, fd);     // simple but invalid indianness
   for(i=0; i<2**ISCALE; i=i+1) begin
     dummy = $fread(fdata, fd);
-    imem.rom.ram3[i]  = fdata[ 0+:8];
-    imem.rom.ram2[i]  = fdata[ 8+:8];
-    imem.rom.ram1[i]  = fdata[16+:8];
-    imem.rom.ram0[i]  = fdata[24+:8];
+    n4.imem.ram3[i]  = fdata[ 0+:8];
+    n4.imem.ram2[i]  = fdata[ 8+:8];
+    n4.imem.ram1[i]  = fdata[16+:8];
+    n4.imem.ram0[i]  = fdata[24+:8];
   end
 
   dummy = $rewind(fd);
 
   for(i=0; i<2**DSCALE && !$feof(fd); i=i+1) begin
     dummy = $fread(fdata, fd);
-    dmem.ram3[i]  = fdata[ 0+:8];
-    dmem.ram2[i]  = fdata[ 8+:8];
-    dmem.ram1[i]  = fdata[16+:8];
-    dmem.ram0[i]  = fdata[24+:8];
+    n4.dram.dram.ram3[i]  = fdata[ 0+:8];
+    n4.dram.dram.ram2[i]  = fdata[ 8+:8];
+    n4.dram.dram.ram1[i]  = fdata[16+:8];
+    n4.dram.dram.ram0[i]  = fdata[24+:8];
   end
 
-  //dummy = $fread(imem.rom.ram, fd); // simple but invalid indianness
-  //dummy = $fread(dmem.ram, fd);     // simple but invalid indianness
+  force n4.pl.DONE = 1;
   $display("done");
 end
 
-// cpu
-wire[16-1:0]  imem_addr;
-wire          imem_oe;
-wire[32-1:0]  imem_rdata;
-reg           imem_valid=0;
-
-wire[32-1:0]  mem_addr;
-wire          mem_oe;
-wire[32-1:0]  mem_wdata;
-wire[ 4-1:0]  mem_we;
-wire[32-1:0]  mem_rdata;
-wire          mem_valid;
-PROCESSOR p (
-  .clk(clk),
-  .rst(rst),
-
-  .imem_addr(imem_addr),
-  .imem_oe(imem_oe),
-  .imem_rdata(imem_rdata),
-  .imem_valid(imem_valid),
-
-  .mem_addr(mem_addr),
-  .mem_oe(mem_oe),
-  .mem_wdata(mem_wdata),
-  .mem_we(mem_we),
-  .mem_rdata(mem_rdata),
-  .mem_valid(mem_valid),
-  .mem_ready(1'b1),
-  .cycle()
+// cpu on nexys4 ddr
+TOP_NEXYS4DDR n4 (
+  .clk100mhz(clk),
+  .cpu_resetn(~rst),
+  .btn(5'h0),
+  .sw(16'h0),
+  .uart_rxd(1'b0)
 );
 
-// MEMO: It is better to insert FIFO to store requests for memory read,
-// because mem_oe and mem_addr are generally asserted one cycle per a request
-// and can be lost while fetching a responce.
-// RAM module always respond in one cycle, so there is no need in this case.
-
-// instruction memory
-ROM #(.SCALE(16)) imem (
-  .clk(clk),
-  .rst(rst),
-
-  .oe0(imem_oe),
-  .addr0(imem_addr),
-  .rdata0(imem_rdata),
-
-  .oe1(1'b0),
-  .addr1(16'h0),
-  .rdata1()
-);
-always @(posedge clk) imem_valid <= imem_oe;  // never misses
-
-// memory mapped IO
-wire          mmio_oe = mem_oe && mem_addr[28+:4]==4'hf;
-wire[ 4-1:0]  mmio_we = {4{mmio_oe}} & mem_we;
-reg [32-1:0]  mmio_rdata = 0;
-reg           mmio_ready = 1'b0;
+// peep the memory mapped IO
+wire          mmio_oe = n4.mmio_oe;
+wire[ 4-1:0]  mmio_we = n4.mmio_we;
 always @(posedge clk) begin
   if(mmio_oe && mmio_we[0]) begin  // write
-    case (mem_addr)
-      32'hf0000000: begin $display("Halt: a0 was %x", p.gpr.r[10]); $finish(); end
+    case (n4.mem_addr)
+      32'hf0000000: begin $display("Halt: a0 was %x", n4.p.gpr.r[10]); $finish(); end
       32'hf0000100: begin
-        if(TRACE) $display("output: %s", mem_wdata[0+:8]);
-        else      $write("%s", mem_wdata[0+:8]);
+        if(TRACE) $display("output: %s", n4.mem_wdata[0+:8]);
+        else      $write("%s", n4.mem_wdata[0+:8]);
       end
       default : begin end
     endcase
   end
   if(mmio_oe && !mmio_we[0]) begin // read
-    case (mem_addr)
+    case (n4.mem_addr)
       // return non zero when TX is available (always available in testbench)
-      32'hf0000100: begin mmio_ready <= 1'b1; mmio_rdata <= 32'b1; end
-      default     : begin mmio_ready <= 1'b1; mmio_rdata <= 32'h0; end
+      32'hf0000100: begin  end
+      default     : begin  end
     endcase
-  end else begin
-    mmio_ready  <= 1'b0;
   end
 end
 
-// data memory
-wire          dmem_oe = mem_oe && mem_addr<32'h08000000;
-wire[ 4-1:0]  dmem_we = {4{dmem_oe}} & mem_we;
-wire[32-1:0]  dmem_rdata;
-reg           dmem_valid = 1'b0;
-RAM #(.SCALE(27)) dmem (
-  .clk(clk),
-  .rst(rst),
-
-  .oe0(dmem_oe),
-  .addr0(mem_addr[0+:27]),
-  .wdata0(mem_wdata),
-  .we0(dmem_we),
-  .rdata0(dmem_rdata),
-
-  .oe1(1'b0),
-  .addr1(27'h0),
-  .wdata1(32'h0),
-  .we1(4'b0),
-  .rdata1()
-);
-
-reg           dmem_read=1'b0;
-reg [32-1:0]  dmem_rdata_hold;
 always @(posedge clk) begin
-  dmem_read       <= dmem_oe && !dmem_we;
-  dmem_valid      <= dmem_read;
-  dmem_rdata_hold <= dmem_rdata;
-end
-
-assign  mem_valid = mmio_ready | dmem_valid;
-assign  mem_rdata =
-  mmio_ready  ? mmio_rdata  :
-  dmem_valid  ? dmem_rdata_hold  :
-                32'hxxxxxxxx;
-
-always @(posedge clk) begin
-  if(!rst && (imem_oe && |imem_addr[1:0])) begin
-    $display("Error: read imem with non-aligned addr: %x", imem_addr);
+  if(!rst && (n4.imem_oe && |n4.imem_addr[1:0])) begin
+    $display("Error: read imem with non-aligned addr: %x", n4.imem_addr);
     $finish();
   end
 end
-
-
 
 // trace output
 localparam[8-1:0] SPACE = " ";
@@ -239,23 +156,23 @@ reg [32*8-1:0]  stallstr;
 reg [256*8-1:0] str_em="";
 reg [32*8-1:0]  wbstr;
 always @(posedge clk) if(TRACE && !rst) begin : trace
-  if(|p.stall)    $sformat(stallstr, "s(b%b)", p.stall);
+  if(|n4.p.stall)    $sformat(stallstr, "s(b%b)", n4.p.stall);
   else            stallstr = "";
-  //if(|p.insertb)  $sformat(ibstr, "b(b%b)", p.insertb);
+  //if(|n4.p.insertb)  $sformat(ibstr, "b(b%b)", n4.p.insertb);
   //else            ibstr = "";
   $write("%8s | ", stallstr);
-  if(TRACE && dmem_read) $write("dmem miss");
-  if(p.stall[p.WB]) begin
+  if(TRACE && n4.dram.dram_reading) $write("dmem miss");
+  if(n4.p.stall[n4.p.WB]) begin
     $display("");
     disable trace;  // early return
   end
 
-  pc      = p.pc[p.EM][0+:16];
-  ir      = p.ir[p.EM];
-  opcode  = p.OPCODE(ir);
-  funct3  = p.FUNCT3(ir);
-  funct7  = p.FUNCT7(ir);
-  imm     = p.IMM(ir);
+  pc      = n4.p.pc[n4.p.EM][0+:16];
+  ir      = n4.p.ir[n4.p.EM];
+  opcode  = n4.p.OPCODE(ir);
+  funct3  = n4.p.FUNCT3(ir);
+  funct7  = n4.p.FUNCT7(ir);
+  imm     = n4.p.IMM(ir);
   opstr =
     ir==`NOP          ? "nop"   :
     ir==`ECALL        ? "ecall" :
@@ -320,25 +237,25 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
                           "unk"):
                         "-";
 
-  if(ir!=`NOP && p.USERD(ir))   $sformat(rdstr, "%s", REGNAME(p.RD(ir)));
+  if(ir!=`NOP && n4.p.USERD(ir))  $sformat(rdstr, "%s", REGNAME(n4.p.RD(ir)));
   else                          rdstr = {3{SPACE}};
-  if(ir!=`NOP && p.USERS1(ir))  $sformat(rs1str, "%s(h%x)", REGNAME(p.RS1(ir)), p.rrs1_fwd);
+  if(ir!=`NOP && n4.p.USERS1(ir)) $sformat(rs1str, "%s(h%x)", REGNAME(n4.p.RS1(ir)), n4.p.rrs1_fwd);
   else                          rs1str = {3+3+8{SPACE}};
-  if(ir!=`NOP && p.USERS2(ir))  $sformat(rs2str, "%s(h%x)", REGNAME(p.RS2(ir)), p.rrs2_fwd);
+  if(ir!=`NOP && n4.p.USERS2(ir)) $sformat(rs2str, "%s(h%x)", REGNAME(n4.p.RS2(ir)), n4.p.rrs2_fwd);
   else                          rs2str = {3+3+8{SPACE}};
-  if(ir!=`NOP && p.USEIMM(ir))  $sformat(immstr, "imm(h%x)", p.IMM(ir));
+  if(ir!=`NOP && n4.p.USEIMM(ir)) $sformat(immstr, "imm(h%x)", n4.p.IMM(ir));
   else                          immstr = {3+3+8{SPACE}};
-  if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL || p.isecall || p.ismret)
-    $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)", p.btarget[0+:16+2], p.btaken, p.bflush);
+  if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL || n4.p.isecall || n4.p.ismret)
+    $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)", n4.p.btarget[0+:16+2], n4.p.btaken, n4.p.bflush);
   else
     branchstr = "";
 
-  if(mem_oe && !mem_we)       $sformat(memstr, "dmem[h%x]",      mem_addr);
-  else if(mem_oe &&  mem_we)  $sformat(memstr, "dmem[h%x] <- (h%x)", mem_addr, mem_wdata);
-  else                        memstr = "";
+  if     (n4.mem_oe && !n4.mem_we)  $sformat(memstr, "dmem[h%x]",           n4.mem_addr);
+  else if(n4.mem_oe &&  n4.mem_we)  $sformat(memstr, "dmem[h%x] <- (h%x)",  n4.mem_addr, n4.mem_wdata);
+  else                              memstr = "";
 
-  if(p.gpr.we)
-    $sformat(wbstr, "(h%x) ->%s", p.gpr.rrd, REGNAME(p.gpr.rd));
+  if(n4.p.gpr.we)
+    $sformat(wbstr, "(h%x) ->%s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
   else
     wbstr = "";
 
@@ -353,40 +270,40 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
 end
 
 function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =
-  //                      Saver   Description
-  r===5'd00 ? "  0" : //          Hard-wired zero
-  r===5'd01 ? " ra" : //  Caller  Return address
-  r===5'd02 ? " sp" : //  Callee  Stack pointer
-  r===5'd03 ? " gp" : //          Global pointer
-  r===5'd04 ? " tp" : //          Thread pointer
-  r===5'd05 ? " t0" : //  Caller  Temporaries
-  r===5'd06 ? " t1" : //  Caller  "
-  r===5'd07 ? " t2" : //  Caller  "
-  r===5'd08 ? " s0" : //  Callee  Saved register / frame pointer
-  r===5'd09 ? " s1" : //  Callee  Saved register
-  r===5'd10 ? " a0" : //  Caller  Function arguments / return values
-  r===5'd11 ? " a1" : //  Caller  "
-  r===5'd12 ? " a2" : //  Caller  Function arguments
-  r===5'd13 ? " a3" : //  Caller  "
-  r===5'd14 ? " a4" : //  Caller  "
-  r===5'd15 ? " a5" : //  Caller  "
-  r===5'd16 ? " a6" : //  Caller  "
-  r===5'd17 ? " a7" : //  Caller  "
-  r===5'd18 ? " s2" : //  Callee  Saved registers
-  r===5'd19 ? " s3" : //  Callee  "
-  r===5'd20 ? " s4" : //  Callee  "
-  r===5'd21 ? " s5" : //  Callee  "
-  r===5'd22 ? " s6" : //  Callee  "
-  r===5'd23 ? " s7" : //  Callee  "
-  r===5'd24 ? " s8" : //  Callee  "
-  r===5'd25 ? " s9" : //  Callee  "
-  r===5'd26 ? "s10" : //  Callee  "
-  r===5'd27 ? "s11" : //  Callee  "
-  r===5'd28 ? " t3" : //  Caller  Temporaries
-  r===5'd29 ? " t4" : //  Caller  "
-  r===5'd30 ? " t5" : //  Caller  "
-  r===5'd31 ? " t6" : //  Caller  "
-              "???";
+  //                      Saver   | Description
+  r===5'd00 ? "  0" : //          | Hard-wired zero
+  r===5'd01 ? " ra" : //  Caller  | Return address
+  r===5'd02 ? " sp" : //  Callee  | Stack pointer
+  r===5'd03 ? " gp" : //          | Global pointer
+  r===5'd04 ? " tp" : //          | Thread pointer
+  r===5'd05 ? " t0" : //  Caller  | Temporaries
+  r===5'd06 ? " t1" : //  Caller  | "
+  r===5'd07 ? " t2" : //  Caller  | "
+  r===5'd08 ? " s0" : //  Callee  | Saved register / frame pointer
+  r===5'd09 ? " s1" : //  Callee  | Saved register
+  r===5'd10 ? " a0" : //  Caller  | Function arguments / return values
+  r===5'd11 ? " a1" : //  Caller  | "
+  r===5'd12 ? " a2" : //  Caller  | Function arguments
+  r===5'd13 ? " a3" : //  Caller  | "
+  r===5'd14 ? " a4" : //  Caller  | "
+  r===5'd15 ? " a5" : //  Caller  | "
+  r===5'd16 ? " a6" : //  Caller  | "
+  r===5'd17 ? " a7" : //  Caller  | "
+  r===5'd18 ? " s2" : //  Callee  | Saved registers
+  r===5'd19 ? " s3" : //  Callee  | "
+  r===5'd20 ? " s4" : //  Callee  | "
+  r===5'd21 ? " s5" : //  Callee  | "
+  r===5'd22 ? " s6" : //  Callee  | "
+  r===5'd23 ? " s7" : //  Callee  | "
+  r===5'd24 ? " s8" : //  Callee  | "
+  r===5'd25 ? " s9" : //  Callee  | "
+  r===5'd26 ? "s10" : //  Callee  | "
+  r===5'd27 ? "s11" : //  Callee  | "
+  r===5'd28 ? " t3" : //  Caller  | Temporaries
+  r===5'd29 ? " t4" : //  Caller  | "
+  r===5'd30 ? " t5" : //  Caller  | "
+  r===5'd31 ? " t6" : //  Caller  | "
+              "zzz";
 endfunction
 
 endmodule

@@ -50,8 +50,8 @@ GENCLK_REF  genclkr (
 // synchronize reset
 wire      rst_async = ~locked | ~locked_mig | ~locked_ref |
                       ~cpu_resetn | ~calib_done;
-reg [1:0] rst_sync;
-reg       rst;
+reg [1:0] rst_sync=2'b00;
+reg       rst=1'b0;
 always @(posedge clk or posedge rst_async) begin
   if(rst_async) rst_sync <= 2'b11;
   else          rst_sync <= {rst_sync[0], 1'b0};
