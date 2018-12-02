@@ -195,13 +195,13 @@ RAM #(.SCALE(27)) dmem (
   .rdata1()
 );
 
-reg           dmem_oe_r=1'b0;
+reg           dmem_read=1'b0;
 reg [32-1:0]  dmem_rdata_hold;
 always @(posedge clk) begin
-  dmem_oe_r       <= dmem_oe;
-  dmem_valid      <= dmem_oe_r;
+  dmem_read       <= dmem_oe && !dmem_we;
+  dmem_valid      <= dmem_read;
   dmem_rdata_hold <= dmem_rdata;
-  if(dmem_oe_r) #1 $display("miss");
+  if(TRACE && dmem_read) #1 $display("miss");
 end
 
 assign  mem_valid = mmio_ready | dmem_valid;

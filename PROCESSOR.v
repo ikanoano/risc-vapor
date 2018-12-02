@@ -230,7 +230,7 @@ assign  btarget = ~32'h1 & (
                     32'hxxxxxxxx);
 assign  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
                   (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]));
-assign  bflush  = btaken && pc[ID]!=btarget;
+assign  bflush  = btaken && pc[ID]!=btarget && !stall[EM];
 
 // mem I/F
 assign  mem_addr    = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
