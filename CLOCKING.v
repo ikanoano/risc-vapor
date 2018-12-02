@@ -7,9 +7,9 @@ module GENCLK_CPU (
   output  wire      clk_out,
   output  wire      locked
 );
-wire        clk_out1;
-wire        clkfbout;
-wire        clkfbout_buf;
+  wire        clk_out1;
+  wire        clkfbout;
+  wire        clkfbout_buf;
 
   MMCME2_ADV #(
     .BANDWIDTH            ("OPTIMIZED"),

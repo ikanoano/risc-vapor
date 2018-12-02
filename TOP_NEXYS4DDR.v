@@ -97,12 +97,10 @@ reg [32-1:0]  prev_mem_addr;
 reg           prev_mem_oe;
 reg [32-1:0]  prev_mem_wdata;
 reg [ 4-1:0]  prev_mem_we;
-reg [32-1:0]  prev_mem_rdata;
 always @(posedge clk) prev_mem_addr  <= mem_addr;
 always @(posedge clk) prev_mem_oe    <= mem_oe;
 always @(posedge clk) prev_mem_wdata <= mem_wdata;
 always @(posedge clk) prev_mem_we    <= mem_we;
-always @(posedge clk) prev_mem_rdata <= mem_rdata;
 
 // program loader
 wire[32-1:0]  init_waddr, init_wdata;
@@ -148,7 +146,7 @@ RAM #(.SCALE(16)) imem (
   .addr1(16'h0),
   .rdata1(),
   .wdata1(32'h0),
-  .we1(1'b0)
+  .we1(4'b0)
 );
 always @(posedge clk) imem_valid <= imem_oe;  // never misses
 
@@ -171,7 +169,7 @@ always @(posedge clk) begin
   if(mmio_oe && !mmio_we[0]) begin
     case (mem_addr[0+:16])
       // return non zero when TX is available
-      16'h0100: begin mmio_valid <= 1'b1; mmio_rdata <= tx_ready; end
+      16'h0100: begin mmio_valid <= 1'b1; mmio_rdata <= {31'h0, tx_ready}; end
       default : begin mmio_valid <= 1'b1; mmio_rdata <= 32'h0; end
     endcase
   end else begin
@@ -182,6 +180,10 @@ end
 // data memory
 wire          dmem_oe = mem_oe && mem_addr<32'h08000000;
 wire[ 4-1:0]  dmem_we = {4{dmem_oe}} & mem_we;
+reg           prev_dmem_oe;
+reg [ 4-1:0]  prev_dmem_we;
+always @(posedge clk) prev_dmem_oe  <= dmem_oe;
+always @(posedge clk) prev_dmem_we  <= dmem_we;
 
 // data cache
 // TO BE WRITTEN
@@ -194,8 +196,8 @@ always @(posedge clk) begin
   if(dmem_oe) dcache_rdata  <= 32'hDEADDEAD;
 end
 
-// dram: read/write after 1 cycle from dmem_oe/dmem_we are asserted
-//  read if dcache miss occured
+// dram: read/write after 1 cycle from dmem_oe/dmem_we assertion
+//  read *ONLY IF* dcache miss occured
 //  write always
 reg           dram_oe;
 reg [32-1:0]  dram_addr;
@@ -205,8 +207,8 @@ wire[32-1:0]  dram_rdata;
 wire          dram_valid;
 wire          dram_busy;
 always @(posedge clk) begin
-  dram_oe     <=    init_we   | prev_mem_we[0] | dcache_miss;
-  dram_we     <= {4{init_we}} | prev_mem_we;
+  dram_oe     <=    init_we   | prev_dmem_we[0] | dcache_miss;
+  dram_we     <= {4{init_we}} | prev_dmem_we;
   dram_addr   <= init_done ? prev_mem_addr  : init_waddr;
   dram_wdata  <= init_done ? prev_mem_wdata : init_wdata;
 end
