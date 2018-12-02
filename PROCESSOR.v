@@ -243,7 +243,8 @@ reg     prev_mem_read=1'b0;
 always @(posedge clk) prev_mem_read <= mem_miss || (mem_oe && !mem_we[0]);
 assign  mem_miss = !rst && prev_mem_read && !mem_valid;
 
-assign  stall_req[EM] = mem_oe & ~mem_ready;  // cannot perform memory access
+// This MEMOE cannot be mem_oe, because stall makes a looped circuit.
+assign  stall_req[EM] = MEMOE(ir[EM]) & ~mem_ready; // cannot perform memory access
 
 // Write Back stage ========================================
 wire[32-1:0]  mem_rdata_extended =
