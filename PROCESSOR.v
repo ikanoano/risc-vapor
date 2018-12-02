@@ -118,7 +118,7 @@ GPR gpr(
 );
 
 reg [32-1:0]  rrs1, rrs2;
-always @(posedge clk) begin
+always @(posedge clk) if(!stall[EM]) begin
   rrs1    <= rrs1_gpr;
   rrs2    <= rrs2_gpr;
 end
@@ -171,10 +171,12 @@ ALU alu (
   .opd2(operand2),
   .rslt(arslt)
 );
-// AUIPC and LUI result
-always @(posedge clk) urslt <= UIMM(ir[EM]) + (ir[EM][5] ? 32'h0 : pc[EM]);
-// JAL and JALR result
-always @(posedge clk) jrslt <= pc[EM]+4;  // rrd<-pc+4
+always @(posedge clk) if(!stall[WB]) begin
+  // AUIPC and LUI result
+  urslt <= UIMM(ir[EM]) + (ir[EM][5] ? 32'h0 : pc[EM]);
+  // JAL and JALR result
+  jrslt <= pc[EM]+4;  // rrd<-pc+4
+end
 // CSR* result
 always @(posedge clk) begin
   // CSR read
@@ -211,7 +213,7 @@ end
 
 // result selector
 reg sel_mem, sel_urslt, sel_jrslt, sel_crslt;
-always @(posedge clk) begin
+always @(posedge clk) if(!stall[WB]) begin
   sel_mem   <= op_em==`LOAD;
   sel_urslt <= op_em==`AUIPC || op_em==`LUI;
   sel_jrslt <= op_em==`JALR  || op_em==`JAL;
@@ -232,9 +234,9 @@ assign  bflush  = btaken && pc[ID]!=btarget;
 
 // mem I/F
 assign  mem_addr    = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-assign  mem_oe      = MEMOE(ir[EM]);
+assign  mem_oe      = MEMOE(ir[EM]) & !stall[EM];
 assign  mem_wdata   = rrs2_fwd;
-assign  mem_we      = MEMWE(ir[EM]);
+assign  mem_we      = MEMWE(ir[EM]) & {4{!stall[EM]}};
 
 wire    mem_miss;
 reg     prev_mem_read=1'b0;

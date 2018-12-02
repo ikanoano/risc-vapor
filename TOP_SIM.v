@@ -57,6 +57,8 @@ initial begin
   if(DUMP) begin
     $dumpfile("/tmp/wave.vcd");
     $dumpvars(1);
+    $dumpvars(1, p.pc[0], p.pc[1], p.pc[2], p.pc[3]);
+    $dumpvars(1,          p.ir[1], p.ir[2], p.ir[3]);
     $dumpvars(1, p, p.gpr);
   end
 end
@@ -192,12 +194,20 @@ RAM #(.SCALE(27)) dmem (
   .we1(4'b0),
   .rdata1()
 );
-always @(posedge clk) dmem_valid <= dmem_oe;  // never misses
+
+reg           dmem_oe_r=1'b0;
+reg [32-1:0]  dmem_rdata_hold;
+always @(posedge clk) begin
+  dmem_oe_r       <= dmem_oe;
+  dmem_valid      <= dmem_oe_r;
+  dmem_rdata_hold <= dmem_rdata;
+  if(dmem_oe_r) #1 $display("miss");
+end
 
 assign  mem_valid = mmio_ready | dmem_valid;
 assign  mem_rdata =
   mmio_ready  ? mmio_rdata  :
-  dmem_valid  ? dmem_rdata  :
+  dmem_valid  ? dmem_rdata_hold  :
                 32'hxxxxxxxx;
 
 always @(posedge clk) begin
@@ -227,9 +237,20 @@ reg [14*8-1:0]  immstr;
 reg [32*8-1:0]  branchstr;
 reg [32*8-1:0]  memstr;
 reg [32*8-1:0]  stallstr;
+reg [32*8-1:0]  ibstr;
 reg [256*8-1:0] str_em="";
 reg [32*8-1:0]  wbstr;
-always @(posedge clk) if(TRACE) begin
+always @(posedge clk) if(TRACE && !rst) begin : trace
+  if(|p.stall)    $sformat(stallstr, "s(b%b)", p.stall);
+  else            stallstr = "";
+  if(|p.insertb)  $sformat(ibstr, "b(b%b)", p.insertb);
+  else            ibstr = "";
+  $write("%8s %8s | ", stallstr, ibstr);
+  if(p.stall[p.WB]) begin
+    $display("");
+    disable trace;  // early return
+  end
+
   pc      = p.pc[p.EM][0+:16];
   ir      = p.ir[p.EM];
   opcode  = p.OPCODE(ir);
@@ -317,9 +338,6 @@ always @(posedge clk) if(TRACE) begin
   else if(mem_oe &&  mem_we)  $sformat(memstr, "dmem[h%x] <- (h%x)", mem_addr, mem_wdata);
   else                        memstr = "";
 
-  if(p.prev_stall!=4'b0)  $sformat(stallstr, "stall(b%b)", p.prev_stall);
-  else                    stallstr = "";
-
   if(p.gpr.we)
     $sformat(wbstr, "(h%x) ->%s", p.gpr.rrd, REGNAME(p.gpr.rd));
   else
@@ -329,10 +347,10 @@ always @(posedge clk) if(TRACE) begin
   $display("%0s%0s", str_em, wbstr);
 
   // save strings made with ExMa stage info
-  $sformat(str_em, "h%x: h%x %s %s %s %s %s %s | %0s%0s%0s",
+  $sformat(str_em, "h%x: h%x %s %s %s %s %s %s | %0s%0s",
     pc, ir, opstr, f3str,
     rdstr, rs1str, rs2str, immstr,
-    stallstr, branchstr, memstr);
+    branchstr, memstr);
 end
 
 function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =
