@@ -34,9 +34,9 @@ module DRAM (
 );
 
   reg         read_done=1'b0, write_done=1'b0;
+  reg         reading=1'b0,   writing=1'b0;
   assign      dram_valid  = read_done;
-  assign      dram_busy   = read_done || write_done;
-  reg         reading=1'b0, writing=1'b0;
+  assign      dram_busy   = reading | writing;
 
   // read address channel
   reg [31:0]  S_AXI_araddr;   // out
