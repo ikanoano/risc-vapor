@@ -34,10 +34,10 @@ run-trace:	isim
 
 benchmark:	isim
 	riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
-	$(MAKE) run IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=1000000
+	$(MAKE) run IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=3000000
 benchmark-trace:	isim
 	riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
-	$(MAKE) run-trace IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=1000000
+	$(MAKE) run-trace IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=3000000
 
 clean:
 	rm -f isim*

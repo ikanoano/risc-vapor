@@ -107,9 +107,11 @@ GPR gpr(
   .clk(clk),
   .rst(rst),
 
-  .rs1(RS1(ir[ID])),
+  // If EM is stalling, forward a register value.
+  // Otherwise, read normally
+  .rs1(!stall[EM] ? RS1(ir[ID]) : RS1(ir[EM])),
   .rrs1(rrs1_gpr),
-  .rs2(RS2(ir[ID])),
+  .rs2(!stall[EM] ? RS2(ir[ID]) : RS2(ir[EM])),
   .rrs2(rrs2_gpr),
 
   .rd(RD(ir[WB])),
@@ -118,7 +120,7 @@ GPR gpr(
 );
 
 reg [32-1:0]  rrs1, rrs2;
-always @(posedge clk) if(!stall[EM]) begin
+always @(posedge clk) begin
   rrs1    <= rrs1_gpr;
   rrs2    <= rrs2_gpr;
 end
