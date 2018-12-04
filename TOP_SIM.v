@@ -128,10 +128,16 @@ always @(posedge clk) begin
   end
 end
 
+// assertion
 always @(posedge clk) begin
   if(!rst && (n4.imem_oe && |n4.imem_addr[1:0])) begin
     $display("Error: read imem with non-aligned addr: %x", n4.imem_addr);
     $finish();
+  end
+
+  if(!rst && ^{n4.p.stall, n4.p.insertb}===1'bx) begin
+    $display("Error: contains X or Z in stall(b%b) or insertb(b%b)",
+      n4.p.stall, n4.p.insertb);
   end
 end
 
@@ -153,7 +159,7 @@ reg [14*8-1:0]  immstr;
 reg [32*8-1:0]  branchstr;
 reg [32*8-1:0]  memstr;
 reg [32*8-1:0]  stallstr;
-reg [256*8-1:0] str_em="";
+reg [128*8-1:0] str_em="";
 reg [32*8-1:0]  wbstr;
 always @(posedge clk) if(TRACE && !rst) begin : trace
   if(|n4.p.stall)    $sformat(stallstr, "s(b%b)", n4.p.stall);
@@ -254,13 +260,17 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
   else if(n4.mem_oe &&  n4.mem_we)  $sformat(memstr, "dmem[h%x] <- (h%x)",  n4.mem_addr, n4.mem_wdata);
   else                              memstr = "";
 
-  if(n4.p.gpr.we)
-    $sformat(wbstr, "(h%x) ->%s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
-  else
-    wbstr = "";
+  if(!n4.p.prev_insertb[n4.p.EM]) begin  // skip if instruction in WB is bubble
+    if(n4.p.gpr.we)
+      $sformat(wbstr, "(h%x) ->%s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
+    else
+      wbstr = "";
 
-  // display trace made with past WM stage info and current WB stage info
-  $display("%0s%0s", str_em, wbstr);
+    // display trace made with past WM stage info and current WB stage info
+    $display("%0s%0s", str_em, wbstr);
+  end else begin
+    $display("bubble");
+  end
 
   // save strings made with ExMa stage info
   $sformat(str_em, "h%x: h%x %s %s %s %s %s %s | %0s%0s",
