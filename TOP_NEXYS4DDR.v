@@ -190,28 +190,24 @@ always @(posedge clk) prev_dmem_we  <= dmem_we;
 reg           dcache_hit  = 1'b0;
 reg           dcache_miss = 1'b0;
 reg [32-1:0]  dcache_rdata;
+reg           dcache_busy = 1'b0;
 always @(posedge clk) begin
   dcache_hit    <= 1'b0;
   dcache_miss   <= dmem_oe;
   if(dmem_oe) dcache_rdata  <= 32'hDEADDEAD;
+  dcache_busy   <= dmem_oe;
 end
 
 // dram: read/write after 1 cycle from dmem_oe/dmem_we assertion
 //  read *ONLY IF* dcache miss occured
 //  write always
-reg           dram_oe;
-reg [32-1:0]  dram_addr;
-reg [32-1:0]  dram_wdata;
-reg [ 4-1:0]  dram_we;
+wire          dram_oe     =    init_we   | prev_dmem_we[0] | dcache_miss;
+wire[32-1:0]  dram_addr   = init_done ? prev_mem_addr  : init_waddr;
+wire[32-1:0]  dram_wdata  = init_done ? prev_mem_wdata : init_wdata;
+wire[ 4-1:0]  dram_we     = {4{init_we}} | prev_dmem_we;
 wire[32-1:0]  dram_rdata;
 wire          dram_valid;
 wire          dram_busy;
-always @(posedge clk) begin
-  dram_oe     <=    init_we   | prev_dmem_we[0] | dcache_miss;
-  dram_we     <= {4{init_we}} | prev_dmem_we;
-  dram_addr   <= init_done ? prev_mem_addr  : init_waddr;
-  dram_wdata  <= init_done ? prev_mem_wdata : init_wdata;
-end
 
 DRAM dram (
   .clk(clk),
@@ -251,7 +247,7 @@ assign  mem_rdata =
   dcache_hit  ? dcache_rdata  :
   dram_valid  ? dram_rdata    :
                 32'hxxxxxxxx;
-assign  mem_ready = ~dram_busy;
+assign  mem_ready = ~dram_busy && ~dcache_busy;
 
 // LEDs
 wire[31:0] disp = (btn[UP]) ? cycle : mem_addr;
