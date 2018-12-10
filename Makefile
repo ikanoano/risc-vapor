@@ -13,6 +13,9 @@ OBJS			=\
 	GPR.v\
 	RAM.v\
 	ROM.v\
+	BARERAM.v\
+	BAREROM.v\
+	BIMODAL_PREDICTOR.v\
 	PROCESSOR.v\
 	PLOADER.v\
 	M_7SEGCON.v\

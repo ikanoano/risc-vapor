@@ -35,21 +35,31 @@ wire[WB:IF]   insertb = stall_req & ~{1'b0, stall[WB:ID]};
 // branch target, branch taken, signal to flush ID to EM stage
 wire[32-1:0]  btarget;
 wire          btaken, bflush;
+// branch prediction addr
+wire[32-1:0]  bptarget;
+reg [WB:ID]   bptaken;
+wire          bpmiss;
 
 // Program Counters for each stage
-reg [32-1:0]  pc[IF:WB];
+wire[32-1:0]  pc[IF:WB];
+reg [32-1:0]  _pc[IF:WB];
+wire[32-1:0]  next_pc_if =
+  rst                       ? BOOT        :
+  bflush                    ? btarget     :
+  stall[IF]                 ? pc[IF]      :
+                              pc[IF]+4;
 integer i;
 always @(posedge clk) begin
-  pc[IF]  <=
-    rst                       ? BOOT        :
-    bflush                    ? btarget     :
-    stall[IF]                 ? pc[IF]      :
-                                pc[IF]+4;
-  for(i=ID; i<=WB; i=i+1) pc[i] <=
+  _pc[IF] <=  next_pc_if;
+  for(i=ID; i<=WB; i=i+1) _pc[i] <=
     rst                       ? BOOT        :
     stall[i]                  ? pc[i]       :
                                 pc[i-1];
 end
+assign  pc[IF]  = bptaken[ID] ? bptarget : _pc[IF];
+assign  pc[ID]  = _pc[ID];
+assign  pc[EM]  = _pc[EM];
+assign  pc[WB]  = _pc[WB];
 
 // Instruction Registers for each stage
 wire[32-1:0]  ir[ID:WB];
@@ -229,10 +239,12 @@ assign  btarget = ~32'h1 & (
   op_em==`BRANCH  ? btarget_branch  :
   isecall         ? mtvec & ~32'b11 : // don't support vectored trap address
   ismret          ? mepc            :
-                    32'hxxxxxxxx);
+                    pc[EM]+4);
 assign  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
                   (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]));
-assign  bflush  = btaken && pc[ID]!=btarget && !stall[EM];
+assign  bpmiss  = bptaken[EM] != btaken;
+// flush if (branch prediction miss or btb was not updated)
+assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
 
 // mem I/F
 assign  mem_addr    = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
@@ -269,6 +281,56 @@ assign  stall_req[WB] = mem_miss;
 
 
 // Misc ========================================
+// branch prediction
+localparam  BTB_PC_WIDTH = 10;
+BARERAM #(.WIDTH(32), .SCALE(BTB_PC_WIDTH), .INIT(1)) btb (
+  .clk(clk), .rst(rst),
+  // read
+  .oe0(1'b1),
+  .addr0(pc[IF][2+:BTB_PC_WIDTH]),
+  .wdata0(32'h0),
+  .we0(1'b0),
+  .rdata0(bptarget),
+  // write
+  .oe1(CTRLXFER(ir[EM])),
+  .addr1(pc[EM][2+:BTB_PC_WIDTH]),
+  .wdata1(btarget),
+  .we1(CTRLXFER(ir[EM])),
+  .rdata1()
+);
+wire[ 2-1:0]  bpdata_id;
+wire          bptaken_id;
+reg [ 2-1:0]  bpdata[WB:ID];
+BIMODAL_PREDICTOR #(.SCALE(BTB_PC_WIDTH)) bp (
+  .clk(clk),
+  .rst(rst),
+  // prediction
+  .bp_pc(pc[IF]),
+  .bp_taken(bptaken_id),
+  .bp_data(bpdata_id), // memorize this
+  // feedback
+  .fb_pc(pc[EM]),
+  .fb_taken(btaken),
+  .fb_we(CTRLXFER(ir[EM])),
+  .fb_data(bpdata[EM])
+);
+always @(*) begin
+  bptaken[ID] = rst ? 1'b0  : bptaken_id;
+  bpdata[ID]  = rst ? 2'b00 : bpdata_id;
+end
+always @(posedge clk) begin
+  for(i=EM; i<=WB; i=i+1) bptaken[i] <=
+    rst       ? 1'b0        :
+    insertb[i]? 1'b0        :
+    stall[i]  ? bptaken[i]  :
+                bptaken[i-1];
+  for(i=EM; i<=WB; i=i+1) bpdata[i] <=
+    rst       ? 2'b00       :
+    insertb[i]? 2'b00       :
+    stall[i]  ? bpdata[i]   :
+                bpdata[i-1];
+end
+
 // instrunction parser
 function[ 5-1:0]  OPCODE(input[32-1:0] inst); OPCODE  = inst[ 6: 2]; endfunction
 function[ 5-1:0]  RD    (input[32-1:0] inst); RD      = inst[11: 7]; endfunction
@@ -325,6 +387,12 @@ endfunction
 function[ 1-1:0]  USEIMM(input[32-1:0] inst); USEIMM =
   OPCODE(inst)!=`OP     &&
   OPCODE(inst)!=`MISCMEM;
+endfunction
+
+function[ 1-1:0]  CTRLXFER(input[32-1:0] inst); CTRLXFER =
+  OPCODE(inst)==`JAL    ||
+  OPCODE(inst)==`JALR   ||
+  OPCODE(inst)==`BRANCH;
 endfunction
 
 endmodule
