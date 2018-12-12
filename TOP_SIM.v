@@ -12,16 +12,19 @@ reg clk=0, rst=0;
 integer         MAX_CYCLE;
 integer         TRACE;
 integer         DUMP;
+integer         TIME;
 reg [256*8-1:0] IMAGE;
 initial begin
   if(!$value$plusargs("MAX_CYCLE=%d", MAX_CYCLE))     MAX_CYCLE=100000;
   if(!$value$plusargs("TRACE=%d", TRACE))             TRACE=0;
   if(!$value$plusargs("IMAGE=%s", IMAGE))             IMAGE="image";
   if(!$value$plusargs("DUMP=%d", DUMP))               DUMP=0;
+  if(!$value$plusargs("TIME=%d", TIME))               TIME=0;
   $display("MAX_CYCLE   = %0d", MAX_CYCLE);
   $display("TRACE       = %0d", TRACE);
   $display("DUMP        = %0d", DUMP);
   $display("IMAGE       = %0s", IMAGE);
+  $display("TIME        = %0s", TIME);
 end
 
 // generate clock
@@ -166,6 +169,7 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
   else            stallstr = "";
   //if(|n4.p.insertb)  $sformat(ibstr, "b(b%b)", n4.p.insertb);
   //else            ibstr = "";
+  if(TIME) $write("%8d ", $time);
   $write("%8s | ", stallstr);
   if(TRACE && n4.dram.dram_reading) $write("dmem miss");
   if(n4.p.stall[n4.p.WB]) begin
