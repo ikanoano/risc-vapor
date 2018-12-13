@@ -10,6 +10,7 @@ module BIMODAL_PREDICTOR #(
   // prediction
   input   wire[32-1:0]  bp_pc,
   output  wire          bp_taken,
+  input   wire          bp_oe,
   output  reg [ 2-1:0]  bp_data,  // processor memorize this
   // feedback
   input   wire[32-1:0]  fb_pc,
@@ -21,7 +22,7 @@ module BIMODAL_PREDICTOR #(
   reg [ 2-1:0] bicounter[0:2**SCALE-1];
 
   // prediction
-  always @(posedge clk) bp_data <= bicounter[bp_pc[2+:SCALE]];
+  always @(posedge clk) if(bp_oe) bp_data <= bicounter[bp_pc[2+:SCALE]];
   assign  bp_taken  = bp_data[1];
 
   // feedback

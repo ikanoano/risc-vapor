@@ -36,7 +36,7 @@ wire[WB:IF]   insertb = stall_req & ~{1'b0, stall[WB:ID]};
 wire[32-1:0]  btarget;
 wire          btaken, bflush;
 // branch prediction addr
-wire[32-1:0]  bptarget;
+wire[32-1:0]  bptarget_id;
 reg [WB:ID]   bptaken;
 wire          bpmiss;
 
@@ -56,7 +56,7 @@ always @(posedge clk) begin
     stall[i]                  ? pc[i]       :
                                 pc[i-1];
 end
-assign  pc[IF]  = bptaken[ID] ? bptarget : _pc[IF];
+assign  pc[IF]  = bptaken[ID] ? bptarget_id : _pc[IF];
 assign  pc[ID]  = _pc[ID];
 assign  pc[EM]  = _pc[EM];
 assign  pc[WB]  = _pc[WB];
@@ -236,7 +236,7 @@ end
 assign  btarget = ~32'h1 & (
   op_em==`JAL     ? btarget_jal     :
   op_em==`JALR    ? btarget_jalr    :
-  op_em==`BRANCH  ? btarget_branch  :
+  (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]))  ? btarget_branch  :
   isecall         ? mtvec & ~32'b11 : // don't support vectored trap address
   ismret          ? mepc            :
                     pc[EM]+4);
@@ -286,11 +286,11 @@ localparam  BTB_PC_WIDTH = 10;
 BARERAM #(.WIDTH(32), .SCALE(BTB_PC_WIDTH), .INIT(1)) btb (
   .clk(clk), .rst(rst),
   // read
-  .oe0(1'b1),
+  .oe0(!stall[ID]),
   .addr0(pc[IF][2+:BTB_PC_WIDTH]),
   .wdata0(32'h0),
   .we0(1'b0),
-  .rdata0(bptarget),
+  .rdata0(bptarget_id),
   // write
   .oe1(CTRLXFER(ir[EM])),
   .addr1(pc[EM][2+:BTB_PC_WIDTH]),
@@ -307,6 +307,7 @@ BIMODAL_PREDICTOR #(.SCALE(BTB_PC_WIDTH)) bp (
   // prediction
   .bp_pc(pc[IF]),
   .bp_taken(bptaken_id),
+  .bp_oe(!stall[ID]),
   .bp_data(bpdata_id), // memorize this
   // feedback
   .fb_pc(pc[EM]),
@@ -315,18 +316,23 @@ BIMODAL_PREDICTOR #(.SCALE(BTB_PC_WIDTH)) bp (
   .fb_data(bpdata[EM])
 );
 always @(*) begin
-  bptaken[ID] = rst ? 1'b0  : bptaken_id;
+  bptaken[ID] =
+    rst         ? 1'b0  :
+    prev_bflush ? 1'b0  :
+    prev_insertb[IF] ? 1'b0        :
+                  bptaken_id;
   bpdata[ID]  = rst ? 2'b00 : bpdata_id;
 end
 always @(posedge clk) begin
   for(i=EM; i<=WB; i=i+1) bptaken[i] <=
     rst       ? 1'b0        :
-    insertb[i]? 1'b0        :
+    i==EM&&bflush ? 1'b0:
+    insertb[i-1]? 1'b0        :
     stall[i]  ? bptaken[i]  :
                 bptaken[i-1];
   for(i=EM; i<=WB; i=i+1) bpdata[i] <=
     rst       ? 2'b00       :
-    insertb[i]? 2'b00       :
+    insertb[i-1]? 2'bxx       : // this data should not be written
     stall[i]  ? bpdata[i]   :
                 bpdata[i-1];
 end
