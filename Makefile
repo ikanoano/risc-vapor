@@ -3,7 +3,9 @@ MAX_CYCLE	?= 100000
 DUMP			?= 0
 TIME			?= 0
 
-IVFLAGS		?= -Wall -g2005 -s TOP_SIM
+RISCV_PREFIX	?=riscv64-linux-gnu-
+IVFLAGS		?= -Wall -g2005 -s TOP_SIM -DIVERILOG
+VVFLAGS		?= -full64 -v2005 -Wall -LDFLAGS -no-pie
 RUNFLAGS	?= +IMAGE=$(IMAGE) +MAX_CYCLE=$(MAX_CYCLE) +DUMP=$(DUMP) +TIME=$(TIME)
 BENCHMARK	?= dhrystone
 
@@ -30,6 +32,8 @@ all:
 
 isim:	$(OBJS)
 	iverilog $(OBJS) $(IVFLAGS) -o $@
+vsim: $(OBJS)
+	vcs $(OBJS) $(VVFLAGS) -o isim
 
 run:	isim
 	./$< $(RUNFLAGS)
@@ -37,10 +41,10 @@ run-trace:	isim
 	./$< $(RUNFLAGS) +TRACE=1
 
 benchmark:	isim
-	riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
+	$(RISCV_PREFIX)objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
 	$(MAKE) run IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=3000000
 benchmark-trace:	isim
-	riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
+	$(RISCV_PREFIX)objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
 	$(MAKE) run-trace IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=3000000
 
 clean:

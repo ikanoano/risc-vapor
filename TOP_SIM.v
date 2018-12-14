@@ -24,7 +24,7 @@ initial begin
   $display("TRACE       = %0d", TRACE);
   $display("DUMP        = %0d", DUMP);
   $display("IMAGE       = %0s", IMAGE);
-  $display("TIME        = %0s", TIME);
+  $display("TIME        = %0d", TIME);
 end
 
 // generate clock
@@ -59,9 +59,12 @@ initial begin
   #1
   if(DUMP) begin
     $dumpfile("/tmp/wave.vcd");
+`ifdef IVERILOG
     $dumpvars(1, n4.p.pc[0], n4.p.pc[1], n4.p.pc[2], n4.p.pc[3]);
     $dumpvars(1,             n4.p.ir[1], n4.p.ir[2], n4.p.ir[3]);
     $dumpvars(1, n4.p, n4.p.gpr, n4.p.bp);
+    $display("iverilog");
+`endif
     $dumpvars(1, n4);
   end
 end

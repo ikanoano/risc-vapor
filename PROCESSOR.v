@@ -40,6 +40,14 @@ wire[32-1:0]  bptarget_id;
 reg [WB:ID]   bptaken;
 wire          bpmiss;
 
+reg [WB:IF]   prev_stall=0;   // stall in last cycle
+reg [WB:IF]   prev_insertb=0; // insertb in last cycle
+reg           prev_bflush=0;  // bflush in last cycle
+always @(posedge clk) prev_bflush   <= bflush;
+always @(posedge clk) prev_stall    <= stall;
+always @(posedge clk) prev_insertb  <= insertb;
+
+
 // Program Counters for each stage
 wire[32-1:0]  pc[IF:WB];
 reg [32-1:0]  _pc[IF:WB];
@@ -82,13 +90,6 @@ always @(posedge clk) _ir[WB] <=
   insertb[EM]               ? `NOP        :
   stall[WB]                 ? ir[WB]      :
                               ir[EM];
-
-reg [WB:IF]   prev_stall=0;   // stall in last cycle
-reg [WB:IF]   prev_insertb=0; // insertb in last cycle
-reg           prev_bflush=0;  // bflush in last cycle
-always @(posedge clk) prev_bflush   <= bflush;
-always @(posedge clk) prev_stall    <= stall;
-always @(posedge clk) prev_insertb  <= insertb;
 
 // control and status registers
 wire[32-1:0]  mhartid=0;                                              // hf14

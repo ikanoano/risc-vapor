@@ -2,3 +2,5 @@
 image
 *.out
 isim*
+csrc/
+*.key
