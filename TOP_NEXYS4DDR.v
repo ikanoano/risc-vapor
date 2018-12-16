@@ -65,7 +65,7 @@ wire[32-1:0]  imem_rdata;
 reg           imem_valid=0;
 
 wire[32-1:0]  mem_addr;
-wire          mem_oe;
+wire[ 4-1:0]  mem_oe;
 wire[32-1:0]  mem_wdata;
 wire[ 4-1:0]  mem_we;
 wire[32-1:0]  mem_rdata;
@@ -151,7 +151,7 @@ RAM #(.SCALE(16)) imem (
 always @(posedge clk) imem_valid <= imem_oe;  // never misses
 
 // memory mapped IO
-wire          mmio_oe = mem_oe && mem_addr[28+:4]==4'hf;
+wire          mmio_oe = mem_oe[0] && mem_addr[28+:4]==4'hf;
 wire[ 4-1:0]  mmio_we = {4{mmio_oe}} & mem_we;
 reg [32-1:0]  mmio_rdata = 0;
 reg           mmio_valid = 1'b0;
@@ -178,29 +178,18 @@ always @(posedge clk) begin
 end
 
 // data memory
-wire          dmem_oe = mem_oe && mem_addr<32'h08000000;
-wire[ 4-1:0]  dmem_we = {4{dmem_oe}} & mem_we;
-reg           prev_dmem_oe;
+wire[ 4-1:0]  dmem_oe = mem_addr<32'h08000000 ? mem_oe : 4'h0;
+wire[ 4-1:0]  dmem_we = dmem_oe & mem_we;
+reg [ 4-1:0]  prev_dmem_oe;
 reg [ 4-1:0]  prev_dmem_we;
 always @(posedge clk) prev_dmem_oe  <= dmem_oe;
 always @(posedge clk) prev_dmem_we  <= dmem_we;
 
-// data cache
-// TO BE WRITTEN
-reg           dcache_hit  = 1'b0;
-reg           dcache_miss = 1'b0;
-reg [32-1:0]  dcache_rdata;
-reg           dcache_busy = 1'b0;
-always @(posedge clk) begin
-  dcache_hit    <= 1'b0;
-  dcache_miss   <= dmem_oe;
-  if(dmem_oe) dcache_rdata  <= 32'hDEADDEAD;
-  dcache_busy   <= dmem_oe;
-end
+wire          dcache_hit;
+wire          dcache_miss = prev_dmem_oe[0] && !dcache_hit;
+wire[32-1:0]  dcache_rdata;
+wire          dcache_busy = prev_dmem_oe[0];
 
-// dram: read/write after 1 cycle from dmem_oe/dmem_we assertion
-//  read *ONLY IF* dcache miss occured
-//  write always
 wire          dram_oe     =    init_we   | prev_dmem_we[0] | dcache_miss;
 wire[32-1:0]  dram_addr   = init_done ? prev_mem_addr  : init_waddr;
 wire[32-1:0]  dram_wdata  = init_done ? prev_mem_wdata : init_wdata;
@@ -209,6 +198,34 @@ wire[32-1:0]  dram_rdata;
 wire          dram_valid;
 wire          dram_busy;
 
+// data cache
+reg [32-1:0]  last_dram_addr=0;
+reg [ 4-1:0]  last_dram_we  =4'h0;
+always @(posedge clk) if(dram_oe) last_dram_addr <= dram_addr;
+always @(posedge clk) if(dram_oe) last_dram_we   <= dram_we;
+DCACHE #(
+  .MEM_SCALE(27),
+  .SCALE(10)
+) dc (
+  .clk(clk),
+  .rst(rst),
+
+  .oe(dmem_oe),
+  .addr(mem_addr[0+:27]),
+  .wdata(mem_wdata),
+  .we(dmem_we),
+  .rdata(dcache_rdata),
+  .hit(dcache_hit),
+
+  .load_oe(dram_valid),
+  .load_addr(last_dram_addr[0+:27]),
+  .load_wdata(dram_rdata),
+  .load_we({4{dram_valid}} & last_dram_we)
+);
+
+// dram: read/write after 1 cycle from dmem_oe/dmem_we assertion
+//  read *ONLY IF* dcache miss occured
+//  write always
 DRAM dram (
   .clk(clk),
   .rst_mig(rst),
