@@ -9,7 +9,7 @@ module DCACHE #(
   input   wire                clk,
   input   wire                rst,
   // r/w from processor
-  input   wire                oe,
+  input   wire[        4-1:0] oe,
   input   wire[MEM_SCALE-1:0] addr,
   input   wire[       32-1:0] wdata,
   input   wire[        4-1:0] we,
@@ -30,7 +30,7 @@ module DCACHE #(
     .clk(clk),
     .rst(rst),
 
-    .oe0(oe),
+    .oe0(oe[0]),
     .addr0(addr[0+:SCALE]),
     .wdata0(wdata),
     .we0(we),
@@ -49,21 +49,35 @@ module DCACHE #(
 
   wire[WIDTH_TAG-1:0] utag    = addr[SCALE+:WIDTH_TAG];
   wire[        4-1:0] uvalid  =
-    tag==utag   ? valid | we  :
-                  we;
+    tag==utag   ? (we<<addr[1:0]) | valid :
+                  (we<<addr[1:0]);
+
+  wire[WIDTH_TAG-1:0] ltag    = load_addr[SCALE+:WIDTH_TAG];
+  wire[        4-1:0] lvalid  = load_we<<load_addr[1:0];
 
   always @(posedge clk) if(we[0]) begin
     valid_and_tag[     addr[2+:SCALE-2]] <= {uvalid, utag};
   end
   always @(posedge clk) if(load_we[0]) begin
-    valid_and_tag[load_addr[2+:SCALE-2]] <= {load_we, load_addr[SCALE+:WIDTH_TAG]};
+    valid_and_tag[load_addr[2+:SCALE-2]] <= {lvalid, ltag};
   end
 
-  always @(posedge clk) hit <= oe && tag==utag; // FIXME: add valid check
+  always @(posedge clk) hit <=
+    oe[0] &&
+    tag==utag &&
+    ((oe<<addr[1:0])&valid)==valid;
 
   always @(posedge clk) begin
-    if(load_we[0] && |we) begin
+    if(load_we[0] && we[0]) begin
       $display("Conflict we: %b %b", load_we, we);
+      $finish();
+    end
+    if(we[0] && ({2'd0, we}<<addr[1:0])>=16) begin
+      $display("Missaligned update not supported: %b %x", we, addr);
+      $finish();
+    end
+    if(load_we[0] && {2'd0, load_we}<<load_addr[1:0]>=16) begin
+      $display("Missaligned load not supported: %b %x", load_we, load_addr);
       $finish();
     end
   end

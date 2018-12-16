@@ -13,7 +13,7 @@ module PROCESSOR (
   input   wire          imem_valid,
 
   output  wire[32-1:0]  mem_addr,
-  output  wire          mem_oe,
+  output  wire[ 4-1:0]  mem_oe,
   output  wire[32-1:0]  mem_wdata,
   output  wire[ 4-1:0]  mem_we,
   input   wire[32-1:0]  mem_rdata,
@@ -237,17 +237,17 @@ assign  bflush  = btaken && pc[ID]!=btarget && !stall[EM];
 
 // mem I/F
 assign  mem_addr    = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-assign  mem_oe      = MEMOE(ir[EM]) & !stall[EM];
+assign  mem_oe      = MEMOE(ir[EM]) & {4{!stall[EM]}};
 assign  mem_wdata   = rrs2_fwd;
 assign  mem_we      = MEMWE(ir[EM]) & {4{!stall[EM]}};
 
 wire    mem_miss;
 reg     prev_mem_read=1'b0;
-always @(posedge clk) prev_mem_read <= mem_miss || (mem_oe && !mem_we[0]);
+always @(posedge clk) prev_mem_read <= mem_miss || (mem_oe[0] && !mem_we[0]);
 assign  mem_miss = !rst && prev_mem_read && !mem_valid;
 
 // This MEMOE cannot be mem_oe, because stall makes a looped circuit.
-assign  stall_req[EM] = MEMOE(ir[EM]) & ~mem_ready; // cannot perform memory access
+assign  stall_req[EM] = |MEMOE(ir[EM]) & ~mem_ready; // cannot perform memory access
 
 // Write Back stage ========================================
 wire[32-1:0]  mem_rdata_extended =
@@ -295,8 +295,14 @@ endfunction
 function[   0:0]  GPRWE (input[32-1:0] inst); GPRWE  =  // gpr write enable
   RD(inst)!=5'd0 && OPCODE(inst)!=`STORE && OPCODE(inst)!=`BRANCH;
 endfunction
-function[   0:0]  MEMOE (input[32-1:0] inst); MEMOE  =  // mem output enable
-  OPCODE(inst)==`LOAD || OPCODE(inst)==`STORE;
+function[ 4-1:0]  MEMOE (input[32-1:0] inst); MEMOE  =  // mem output enable
+  OPCODE(inst)!=`LOAD   ? MEMWE(inst) : // not store
+  FUNCT3(inst)==`LB     ? 4'b0001 :
+  FUNCT3(inst)==`LH     ? 4'b0011 :
+  FUNCT3(inst)==`LW     ? 4'b1111 :
+  FUNCT3(inst)==`LBU    ? 4'b0001 :
+  FUNCT3(inst)==`LHU    ? 4'b0011 :
+                          4'bxxxx;
 endfunction
 function[ 4-1:0]  MEMWE (input[32-1:0] inst); MEMWE  =  // mem write enable
   OPCODE(inst)!=`STORE  ? 4'b0000 : // not store

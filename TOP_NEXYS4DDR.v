@@ -65,7 +65,7 @@ wire[32-1:0]  imem_rdata;
 reg           imem_valid=0;
 
 wire[32-1:0]  mem_addr;
-wire          mem_oe;
+wire[ 4-1:0]  mem_oe;
 wire[32-1:0]  mem_wdata;
 wire[ 4-1:0]  mem_we;
 wire[32-1:0]  mem_rdata;
@@ -151,7 +151,7 @@ RAM #(.SCALE(16)) imem (
 always @(posedge clk) imem_valid <= imem_oe;  // never misses
 
 // memory mapped IO
-wire          mmio_oe = mem_oe && mem_addr[28+:4]==4'hf;
+wire          mmio_oe = mem_oe[0] && mem_addr[28+:4]==4'hf;
 wire[ 4-1:0]  mmio_we = {4{mmio_oe}} & mem_we;
 reg [32-1:0]  mmio_rdata = 0;
 reg           mmio_valid = 1'b0;
@@ -178,20 +178,17 @@ always @(posedge clk) begin
 end
 
 // data memory
-wire          dmem_oe = mem_oe && mem_addr<32'h08000000;
-wire[ 4-1:0]  dmem_we = {4{dmem_oe}} & mem_we;
-reg           prev_dmem_oe;
+wire[ 4-1:0]  dmem_oe = mem_addr<32'h08000000 ? mem_oe : 4'h0;
+wire[ 4-1:0]  dmem_we = dmem_oe & mem_we;
+reg [ 4-1:0]  prev_dmem_oe;
 reg [ 4-1:0]  prev_dmem_we;
 always @(posedge clk) prev_dmem_oe  <= dmem_oe;
 always @(posedge clk) prev_dmem_we  <= dmem_we;
 
 wire          dcache_hit;
-wire          dcache_miss = prev_dmem_oe && !dcache_hit;
+wire          dcache_miss = prev_dmem_oe[0] && !dcache_hit;
 wire[32-1:0]  dcache_rdata;
-reg           dcache_busy = 1'b0;
-always @(posedge clk) begin
-  dcache_busy   <= dmem_oe;
-end
+wire          dcache_busy = prev_dmem_oe[0];
 
 wire          dram_oe     =    init_we   | prev_dmem_we[0] | dcache_miss;
 wire[32-1:0]  dram_addr   = init_done ? prev_mem_addr  : init_waddr;
