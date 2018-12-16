@@ -185,22 +185,14 @@ reg [ 4-1:0]  prev_dmem_we;
 always @(posedge clk) prev_dmem_oe  <= dmem_oe;
 always @(posedge clk) prev_dmem_we  <= dmem_we;
 
-// data cache
-// TO BE WRITTEN
-reg           dcache_hit  = 1'b0;
-reg           dcache_miss = 1'b0;
-reg [32-1:0]  dcache_rdata;
+wire          dcache_hit;
+wire          dcache_miss = prev_dmem_oe && !dcache_hit;
+wire[32-1:0]  dcache_rdata;
 reg           dcache_busy = 1'b0;
 always @(posedge clk) begin
-  dcache_hit    <= 1'b0;
-  dcache_miss   <= dmem_oe;
-  if(dmem_oe) dcache_rdata  <= 32'hDEADDEAD;
   dcache_busy   <= dmem_oe;
 end
 
-// dram: read/write after 1 cycle from dmem_oe/dmem_we assertion
-//  read *ONLY IF* dcache miss occured
-//  write always
 wire          dram_oe     =    init_we   | prev_dmem_we[0] | dcache_miss;
 wire[32-1:0]  dram_addr   = init_done ? prev_mem_addr  : init_waddr;
 wire[32-1:0]  dram_wdata  = init_done ? prev_mem_wdata : init_wdata;
@@ -209,6 +201,34 @@ wire[32-1:0]  dram_rdata;
 wire          dram_valid;
 wire          dram_busy;
 
+// data cache
+reg [32-1:0]  last_dram_addr=0;
+reg [ 4-1:0]  last_dram_we  =4'h0;
+always @(posedge clk) if(dram_oe) last_dram_addr <= dram_addr;
+always @(posedge clk) if(dram_oe) last_dram_we   <= dram_we;
+DCACHE #(
+  .MEM_SCALE(27),
+  .SCALE(10)
+) dc (
+  .clk(clk),
+  .rst(rst),
+
+  .oe(dmem_oe),
+  .addr(mem_addr[0+:27]),
+  .wdata(mem_wdata),
+  .we(dmem_we),
+  .rdata(dcache_rdata),
+  .hit(dcache_hit),
+
+  .load_oe(dram_valid),
+  .load_addr(last_dram_addr[0+:27]),
+  .load_wdata(dram_rdata),
+  .load_we({4{dram_valid}} & last_dram_we)
+);
+
+// dram: read/write after 1 cycle from dmem_oe/dmem_we assertion
+//  read *ONLY IF* dcache miss occured
+//  write always
 DRAM dram (
   .clk(clk),
   .rst_mig(rst),

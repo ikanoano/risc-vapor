@@ -72,6 +72,7 @@ always @(posedge clk) _ir[WB] <=
   insertb[EM]               ? `NOP        :
   stall[WB]                 ? ir[WB]      :
                               ir[EM];
+initial {_ir[EM], _ir[WB]} = 0;
 
 reg [WB:IF]   prev_stall=0;   // stall in last cycle
 reg [WB:IF]   prev_insertb=0; // insertb in last cycle
