@@ -63,6 +63,7 @@ initial begin
     $dumpvars(1, n4.p.pc[0], n4.p.pc[1], n4.p.pc[2], n4.p.pc[3]);
     $dumpvars(1,             n4.p.ir[1], n4.p.ir[2], n4.p.ir[3]);
     $dumpvars(1, n4.p, n4.p.gpr, n4.p.bp);
+    $dumpvars(1, n4.dc);
     $display("iverilog");
 `endif
     $dumpvars(1, n4);
