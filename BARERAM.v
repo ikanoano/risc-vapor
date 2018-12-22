@@ -34,7 +34,9 @@ module BARERAM #(
         rdata0      <= ram[addr0];
       end
     end
+  end
 
+  always @(posedge clk) begin
     if(oe1) begin
       if(we1) begin
         ram[addr1]  <= wdata1;
