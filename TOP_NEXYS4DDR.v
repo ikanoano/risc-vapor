@@ -68,8 +68,8 @@ wire[32-1:0]  mem_addr;
 wire[ 4-1:0]  mem_oe;
 wire[32-1:0]  mem_wdata;
 wire[ 4-1:0]  mem_we;
-wire[32-1:0]  mem_rdata;
-wire          mem_valid;
+reg [32-1:0]  mem_rdata=0;
+reg           mem_valid=1'b0;
 wire          mem_ready;
 
 wire[32-1:0]  cycle;
@@ -190,7 +190,7 @@ wire          dcache_miss = prev_dmem_oe[0] && !dcache_hit;
 wire[32-1:0]  dcache_rdata;
 wire          dcache_busy = prev_dmem_oe[0];
 
-wire          dram_oe     =    init_we   | prev_dmem_we[0] | dcache_miss;
+wire          dram_oe     = init_we | prev_dmem_we[0] | dcache_miss;
 wire[32-1:0]  dram_addr   = init_done ? prev_mem_addr  : init_waddr;
 wire[32-1:0]  dram_wdata  = init_done ? prev_mem_wdata : init_wdata;
 wire[ 4-1:0]  dram_we     = {4{init_we}} | prev_dmem_we;
@@ -258,13 +258,15 @@ DRAM dram (
   .ddr2_we_n(ddr2_we_n)
 );
 
-assign  mem_valid = mmio_valid | dcache_hit | dram_valid;
-assign  mem_rdata =
+always @(posedge clk) begin
+  mem_valid <= mmio_valid | dcache_hit | dram_valid;
+  mem_rdata <=
   mmio_valid  ? mmio_rdata    :
   dcache_hit  ? dcache_rdata  :
   dram_valid  ? dram_rdata    :
                 32'hxxxxxxxx;
-assign  mem_ready = ~dram_busy && ~dcache_busy;
+end
+assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 
 // LEDs
 wire[31:0] disp = (btn[UP]) ? cycle : mem_addr;

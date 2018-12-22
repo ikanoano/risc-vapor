@@ -12,10 +12,10 @@ module PROCESSOR (
   input   wire[32-1:0]  imem_rdata,
   input   wire          imem_valid,
 
-  output  wire[32-1:0]  mem_addr,
-  output  wire[ 4-1:0]  mem_oe,
-  output  wire[32-1:0]  mem_wdata,
-  output  wire[ 4-1:0]  mem_we,
+  output  reg [32-1:0]  mem_addr,
+  output  reg [ 4-1:0]  mem_oe,
+  output  reg [32-1:0]  mem_wdata,
+  output  reg [ 4-1:0]  mem_we,
   input   wire[32-1:0]  mem_rdata,
   input   wire          mem_valid,
   input   wire          mem_ready,
@@ -106,10 +106,13 @@ assign        cycle = mcycle;
 assign  imem_addr   = pc[IF][0+:16];
 assign  imem_oe     = !stall[IF];
 
-wire    imem_miss;
-reg     prev_imem_read=1'b0;
-always @(posedge clk) prev_imem_read <= imem_miss || imem_oe;
-assign  imem_miss = !rst & prev_imem_read & !imem_valid;
+reg     imem_reading = 1'b0;
+wire    imem_miss    = imem_reading && !imem_valid;
+always @(posedge clk) imem_reading <=
+  rst         ? 1'b0 :
+  imem_oe     ? 1'b1 :
+  imem_valid  ? 1'b0 :
+                imem_reading;
 
 assign  stall_req[IF] = 1'b0;
 
@@ -249,17 +252,23 @@ assign  bpmiss  = bptaken[EM] != btaken;
 assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
 
 // mem I/F
-assign  mem_addr    = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-assign  mem_oe      = MEMOE(ir[EM]) & {4{!stall[EM]}};
-assign  mem_wdata   = rrs2_fwd;
-assign  mem_we      = MEMWE(ir[EM]) & {4{!stall[EM]}};
+always @(posedge clk) begin
+  mem_addr    <= rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
+  mem_oe      <= MEMOE(ir[EM]) & {4{!stall[EM]}};
+  mem_wdata   <= rrs2_fwd;
+  mem_we      <= MEMWE(ir[EM]) & {4{!stall[EM]}};
+end
+initial {mem_addr, mem_oe, mem_wdata, mem_we} = 0;
 
-wire    mem_miss;
-reg     prev_mem_read=1'b0;
-always @(posedge clk) prev_mem_read <= mem_miss || (mem_oe[0] && !mem_we[0]);
-assign  mem_miss = !rst && prev_mem_read && !mem_valid;
+wire[4-1:0] mem_read    = {4{~stall[EM]}} & MEMOE(ir[EM]) & ~MEMWE(ir[EM]);
+reg         mem_reading = 1'b0;
+wire        mem_miss    = mem_reading && !mem_valid;
+always @(posedge clk) mem_reading <=
+  rst         ? 1'b0 :
+  mem_read[0] ? 1'b1 :
+  mem_valid   ? 1'b0 :
+                mem_reading;
 
-// This MEMOE cannot be mem_oe, because stall makes a looped circuit.
 assign  stall_req[EM] = |MEMOE(ir[EM]) & ~mem_ready; // cannot perform memory access
 
 // Write Back stage ========================================
