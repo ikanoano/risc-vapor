@@ -420,7 +420,7 @@ function[ 1-1:0]  CTRLXFER(input[32-1:0] inst); CTRLXFER =
   OPCODE(inst)==`BRANCH;
 endfunction
 
-function[ 1-1:0]  LOADEXT(input[32-1:0] inst, input[32-1:0] ledata);  LOADEXT =
+function[32-1:0]  LOADEXT(input[32-1:0] inst, input[32-1:0] ledata);  LOADEXT =
   FUNCT3(inst)==`LB   ? {{24{ledata[ 7]}}, ledata[0+: 8]} :
   FUNCT3(inst)==`LH   ? {{16{ledata[15]}}, ledata[0+:16]} :
   FUNCT3(inst)==`LW   ?                    ledata[0+:32]  :
