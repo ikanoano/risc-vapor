@@ -143,24 +143,19 @@ end
 // prefetch values used by branch instructions
 reg           isecall, ismret;
 reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
-reg [ 8-1:0]  bcond=8'h00;
+reg [ 8-1:0]  bcond=8'hxx;
 always @(posedge clk) if(!stall[EM]) begin
   isecall   <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
   ismret    <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
   btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
   btarget_jalr  <= pre_rrs1 +IIMM(ir[ID]);
   btarget_branch<= pc[ID]   +BIMM(ir[ID]);
-  if(!bflush && OPCODE(ir[ID])==`BRANCH) begin
-    bcond[`BEQ ]  <=           pre_rrs1  ==           pre_rrs2;
-    bcond[`BNE ]  <=           pre_rrs1  !=           pre_rrs2;
-    bcond[`BLT ]  <=   $signed(pre_rrs1) <    $signed(pre_rrs2);
-    bcond[`BGE ]  <=   $signed(pre_rrs1) >=   $signed(pre_rrs2);
-    bcond[`BLTU]  <= $unsigned(pre_rrs1) <  $unsigned(pre_rrs2);
-    bcond[`BGEU]  <= $unsigned(pre_rrs1) >= $unsigned(pre_rrs2);
-  end else begin
-    bcond         <= 8'h0;
-  end
-
+  bcond[`BEQ ]  <=           pre_rrs1  ==           pre_rrs2;
+  bcond[`BNE ]  <=           pre_rrs1  !=           pre_rrs2;
+  bcond[`BLT ]  <=   $signed(pre_rrs1) <    $signed(pre_rrs2);
+  bcond[`BGE ]  <=   $signed(pre_rrs1) >=   $signed(pre_rrs2);
+  bcond[`BLTU]  <= $unsigned(pre_rrs1) <  $unsigned(pre_rrs2);
+  bcond[`BGEU]  <= $unsigned(pre_rrs1) >= $unsigned(pre_rrs2);
 end
 
 // stall if (ir[ID] is not ready) or (source operand is still in EM stage)
@@ -246,12 +241,12 @@ end
 assign  btarget = ~32'h1 & (
   op_em==`JAL           ? btarget_jal     :
   op_em==`JALR          ? btarget_jalr    :
-  bcond[FUNCT3(ir[EM])] ? btarget_branch  :
+  op_em==`BRANCH && bcond[FUNCT3(ir[EM])] ? btarget_branch  :
   isecall               ? mtvec & ~32'b11 : // don't support vectored trap address
   ismret                ? mepc            :
                           pc[EM]+4);
 assign  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
-                  bcond[FUNCT3(ir[EM])];
+                  (op_em==`BRANCH && bcond[FUNCT3(ir[EM])]);
 assign  bpmiss  = bptaken[EM] != btaken;
 // flush if (branch prediction miss or btb was not updated)
 assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
