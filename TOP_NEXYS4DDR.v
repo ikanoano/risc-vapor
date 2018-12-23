@@ -261,10 +261,10 @@ DRAM dram (
 always @(posedge clk) begin
   mem_valid <= mmio_valid | dcache_hit | dram_valid;
   mem_rdata <=
-  mmio_valid  ? mmio_rdata    :
-  dcache_hit  ? dcache_rdata  :
-  dram_valid  ? dram_rdata    :
-                32'hxxxxxxxx;
+    mmio_valid  ? mmio_rdata    :
+    dcache_hit  ? dcache_rdata  :
+    dram_valid  ? dram_rdata    :
+                  32'hxxxxxxxx;
 end
 assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 

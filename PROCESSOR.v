@@ -117,7 +117,7 @@ always @(posedge clk) imem_reading <=
 assign  stall_req[IF] = 1'b0;
 
 // Instruction Decode stage ========================================
-wire[32-1:0]  rrs1_gpr, rrs2_gpr, rrd;
+wire[32-1:0]  pre_rrs1, pre_rrs2, rrd;
 GPR gpr(
   .clk(clk),
   .rst(rst),
@@ -125,9 +125,9 @@ GPR gpr(
   // If EM is stalling, forward a register value.
   // Otherwise, read normally
   .rs1(!stall[EM] ? RS1(ir[ID]) : RS1(ir[EM])),
-  .rrs1(rrs1_gpr),
+  .rrs1(pre_rrs1),
   .rs2(!stall[EM] ? RS2(ir[ID]) : RS2(ir[EM])),
-  .rrs2(rrs2_gpr),
+  .rrs2(pre_rrs2),
 
   .rd(RD(ir[WB])),
   .rrd(rrd),  // rrd is forwarded to rrs1 and rrs2 in GPR module
@@ -136,26 +136,31 @@ GPR gpr(
 
 reg [32-1:0]  rrs1, rrs2;
 always @(posedge clk) begin
-  rrs1    <= rrs1_gpr;
-  rrs2    <= rrs2_gpr;
+  rrs1    <= pre_rrs1;
+  rrs2    <= pre_rrs2;
 end
 
 // prefetch values used by branch instructions
 reg           isecall, ismret;
 reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
-reg [ 8-1:0]  bcond=8'hxx;
+reg [ 8-1:0]  bcond=8'h00;
 always @(posedge clk) if(!stall[EM]) begin
   isecall   <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
   ismret    <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
   btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
-  btarget_jalr  <= rrs1_gpr +IIMM(ir[ID]);
+  btarget_jalr  <= pre_rrs1 +IIMM(ir[ID]);
   btarget_branch<= pc[ID]   +BIMM(ir[ID]);
-  bcond[`BEQ ]  <=           rrs1_gpr  ==           rrs2_gpr;
-  bcond[`BNE ]  <=           rrs1_gpr  !=           rrs2_gpr;
-  bcond[`BLT ]  <=   $signed(rrs1_gpr) <    $signed(rrs2_gpr);
-  bcond[`BGE ]  <=   $signed(rrs1_gpr) >=   $signed(rrs2_gpr);
-  bcond[`BLTU]  <= $unsigned(rrs1_gpr) <  $unsigned(rrs2_gpr);
-  bcond[`BGEU]  <= $unsigned(rrs1_gpr) >= $unsigned(rrs2_gpr);
+  if(!bflush && OPCODE(ir[ID])==`BRANCH) begin
+    bcond[`BEQ ]  <=           pre_rrs1  ==           pre_rrs2;
+    bcond[`BNE ]  <=           pre_rrs1  !=           pre_rrs2;
+    bcond[`BLT ]  <=   $signed(pre_rrs1) <    $signed(pre_rrs2);
+    bcond[`BGE ]  <=   $signed(pre_rrs1) >=   $signed(pre_rrs2);
+    bcond[`BLTU]  <= $unsigned(pre_rrs1) <  $unsigned(pre_rrs2);
+    bcond[`BGEU]  <= $unsigned(pre_rrs1) >= $unsigned(pre_rrs2);
+  end else begin
+    bcond         <= 8'h0;
+  end
+
 end
 
 // stall if (ir[ID] is not ready) or (source operand is still in EM stage)
@@ -163,7 +168,7 @@ end
 assign  stall_req[ID] = imem_miss || (
   GPRWE(ir[EM]) &&
   (RD(ir[EM])==RS1(ir[ID]) || RD(ir[EM])==RS2(ir[ID])) &&
-  (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use rrs1_gpr
+  (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use pre_rrs1
 );
 
 // Execute and Memory access stage ========================================
@@ -192,7 +197,7 @@ always @(posedge clk) if(!stall[WB]) begin
   // AUIPC and LUI result
   urslt <= UIMM(ir[EM]) + (ir[EM][5] ? 32'h0 : pc[EM]);
   // JAL and JALR result
-  jrslt <= pc[EM]+4;  // rrd<-pc+4
+  jrslt <= pc[EM]+4;  // rrd <- pc+4
 end
 // CSR* result
 always @(posedge clk) begin
@@ -239,14 +244,14 @@ end
 
 // branch
 assign  btarget = ~32'h1 & (
-  op_em==`JAL     ? btarget_jal     :
-  op_em==`JALR    ? btarget_jalr    :
-  (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]))  ? btarget_branch  :
-  isecall         ? mtvec & ~32'b11 : // don't support vectored trap address
-  ismret          ? mepc            :
-                    pc[EM]+4);
+  op_em==`JAL           ? btarget_jal     :
+  op_em==`JALR          ? btarget_jalr    :
+  bcond[FUNCT3(ir[EM])] ? btarget_branch  :
+  isecall               ? mtvec & ~32'b11 : // don't support vectored trap address
+  ismret                ? mepc            :
+                          pc[EM]+4);
 assign  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
-                  (op_em==`BRANCH & (bcond[FUNCT3(ir[EM])]));
+                  bcond[FUNCT3(ir[EM])];
 assign  bpmiss  = bptaken[EM] != btaken;
 // flush if (branch prediction miss or btb was not updated)
 assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
@@ -272,14 +277,7 @@ always @(posedge clk) mem_reading <=
 assign  stall_req[EM] = |MEMOE(ir[EM]) & ~mem_ready; // cannot perform memory access
 
 // Write Back stage ========================================
-wire[32-1:0]  mem_rdata_extended =
-  FUNCT3(ir[WB])==`LB   ? {{24{mem_rdata[ 7]}}, mem_rdata[0+: 8]} :
-  FUNCT3(ir[WB])==`LH   ? {{16{mem_rdata[15]}}, mem_rdata[0+:16]} :
-  FUNCT3(ir[WB])==`LW   ?                       mem_rdata[0+:32]  :
-  FUNCT3(ir[WB])==`LBU  ? {{24{         1'b0}}, mem_rdata[0+: 8]} :
-  FUNCT3(ir[WB])==`LHU  ? {{16{         1'b0}}, mem_rdata[0+:16]} :
-                          32'hxxxxxxxx;
-
+wire[32-1:0]  mem_rdata_extended = LOADEXT(ir[WB], mem_rdata);
 assign  rrd     =
   sel_mem   ? mem_rdata_extended :
   sel_urslt ? urslt :
@@ -327,25 +325,27 @@ BIMODAL_PREDICTOR #(.SCALE(BTB_PC_WIDTH)) bp (
   .fb_data(bpdata[EM])
 );
 always @(*) begin
-  bptaken[ID] =
-    rst         ? 1'b0  :
-    prev_bflush ? 1'b0  :
-    prev_insertb[IF] ? 1'b0        :
-                  bptaken_id;
-  bpdata[ID]  = rst ? 2'b00 : bpdata_id;
+  bptaken[ID] <=
+    rst               ? 1'b0  :
+    prev_bflush       ? 1'b0  :
+    prev_insertb[IF]  ? 1'b0  :
+                        bptaken_id;
+  bpdata[ID]  <=
+    rst               ? 2'b00 :
+                        bpdata_id;
 end
 always @(posedge clk) begin
   for(i=EM; i<=WB; i=i+1) bptaken[i] <=
-    rst       ? 1'b0        :
-    i==EM&&bflush ? 1'b0:
-    insertb[i-1]? 1'b0        :
-    stall[i]  ? bptaken[i]  :
-                bptaken[i-1];
+    rst           ? 1'b0        :
+    i==EM&&bflush ? 1'b0        :
+    insertb[i-1]  ? 1'b0        :
+    stall[i]      ? bptaken[i]  :
+                    bptaken[i-1];
   for(i=EM; i<=WB; i=i+1) bpdata[i] <=
-    rst       ? 2'b00       :
-    insertb[i-1]? 2'bxx       : // this data should not be written
-    stall[i]  ? bpdata[i]   :
-                bpdata[i-1];
+    rst           ? 2'b00       :
+    insertb[i-1]  ? 2'bxx       : // this data should not be written
+    stall[i]      ? bpdata[i]   :
+                    bpdata[i-1];
 end
 
 // instrunction parser
@@ -416,6 +416,15 @@ function[ 1-1:0]  CTRLXFER(input[32-1:0] inst); CTRLXFER =
   OPCODE(inst)==`JAL    ||
   OPCODE(inst)==`JALR   ||
   OPCODE(inst)==`BRANCH;
+endfunction
+
+function[ 1-1:0]  LOADEXT(input[32-1:0] inst, input[32-1:0] ledata);  LOADEXT =
+  FUNCT3(inst)==`LB   ? {{24{ledata[ 7]}}, ledata[0+: 8]} :
+  FUNCT3(inst)==`LH   ? {{16{ledata[15]}}, ledata[0+:16]} :
+  FUNCT3(inst)==`LW   ?                    ledata[0+:32]  :
+  FUNCT3(inst)==`LBU  ? {{24{      1'b0}}, ledata[0+: 8]} :
+  FUNCT3(inst)==`LHU  ? {{16{      1'b0}}, ledata[0+:16]} :
+                        32'hxxxxxxxx;
 endfunction
 
 endmodule
