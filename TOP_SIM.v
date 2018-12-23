@@ -150,6 +150,7 @@ end
 
 // trace output
 localparam[8-1:0] SPACE = " ";
+reg [     3:0] stall;
 reg [  16-1:0]  pc;
 reg [  32-1:0]  ir;
 reg [   5-1:0]  opcode;
@@ -164,19 +165,21 @@ reg [14*8-1:0]  rs1str;
 reg [14*8-1:0]  rs2str;
 reg [14*8-1:0]  immstr;
 reg [32*8-1:0]  branchstr;
-reg [32*8-1:0]  memstr;
+reg [32*8-1:0]  storestr;
+reg [32*8-1:0]  loadstr;
 reg [32*8-1:0]  stallstr;
 reg [128*8-1:0] str_em="";
 reg [32*8-1:0]  wbstr;
 always @(posedge clk) if(TRACE && !rst) begin : trace
-  if(|n4.p.stall)    $sformat(stallstr, "s(b%b)", n4.p.stall);
+  stall   = n4.p.stall;
+  if(|stall)      $sformat(stallstr, "s(b%b)", stall);
   else            stallstr = "";
   //if(|n4.p.insertb)  $sformat(ibstr, "b(b%b)", n4.p.insertb);
   //else            ibstr = "";
   if(TIME) $write("%8d ", $time);
   $write("%8s | ", stallstr);
-  if(TRACE && n4.dram.dram_reading) $write("dmem miss");
-  if(n4.p.stall[n4.p.WB]) begin
+  if(TRACE && n4.dram.dram_reading) $write("reading dram");
+  if(stall[n4.p.WB]) begin
     $display("");
     disable trace;  // early return
   end
@@ -252,30 +255,37 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
                         "-";
 
   if(ir!=`NOP && n4.p.USERD(ir))  $sformat(rdstr, "%s", REGNAME(n4.p.RD(ir)));
-  else                          rdstr = {3{SPACE}};
+  else                            rdstr = {3{SPACE}};
   if(ir!=`NOP && n4.p.USERS1(ir)) $sformat(rs1str, "%s(h%x)", REGNAME(n4.p.RS1(ir)), n4.p.rrs1_fwd);
-  else                          rs1str = {3+3+8{SPACE}};
+  else                            rs1str = {3+3+8{SPACE}};
   if(ir!=`NOP && n4.p.USERS2(ir)) $sformat(rs2str, "%s(h%x)", REGNAME(n4.p.RS2(ir)), n4.p.rrs2_fwd);
-  else                          rs2str = {3+3+8{SPACE}};
+  else                            rs2str = {3+3+8{SPACE}};
   if(ir!=`NOP && n4.p.USEIMM(ir)) $sformat(immstr, "imm(h%x)", n4.p.IMM(ir));
-  else                          immstr = {3+3+8{SPACE}};
+  else                            immstr = {3+3+8{SPACE}};
   if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL || n4.p.isecall || n4.p.ismret)
     $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)", n4.p.btarget[0+:16+2], n4.p.btaken, n4.p.bflush);
   else
     branchstr = "";
 
-  if     (n4.mem_oe && !n4.mem_we)  $sformat(memstr, "dmem[h%x]",           n4.mem_addr);
-  else if(n4.mem_oe &&  n4.mem_we)  $sformat(memstr, "dmem[h%x] <- (h%x)",  n4.mem_addr, n4.mem_wdata);
-  else                              memstr = "";
+  if(n4.p.pre_mem_we) begin
+    $sformat(storestr, "dmem[h%x] <- (h%x)", n4.p.pre_mem_addr, n4.p.pre_mem_wdata);
+  end else begin
+    storestr = "";
+  end
 
   if(!n4.p.prev_insertb[n4.p.EM]) begin  // skip if instruction in WB is bubble
+    if(n4.p.mem_reading && n4.p.mem_valid) begin
+      $sformat(loadstr, "dmem[h%x]", n4.mem_addr);
+    end else begin
+      loadstr = "";
+    end
     if(n4.p.gpr.we)
-      $sformat(wbstr, "(h%x) ->%s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
+      $sformat(wbstr, "(h%x) -> %s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
     else
       wbstr = "";
 
     // display trace made with past WM stage info and current WB stage info
-    $display("%0s%0s", str_em, wbstr);
+    $display("%0s%0s%0s", str_em, loadstr, wbstr);
   end else begin
     $display("bubble");
   end
@@ -284,7 +294,7 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
   $sformat(str_em, "h%x: h%x %s %s %s %s %s %s | %0s%0s",
     pc, ir, opstr, f3str,
     rdstr, rs1str, rs2str, immstr,
-    branchstr, memstr);
+    branchstr, storestr);
 end
 
 function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =

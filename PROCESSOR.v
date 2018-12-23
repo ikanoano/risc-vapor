@@ -257,20 +257,22 @@ assign  bpmiss  = bptaken[EM] != btaken;
 assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
 
 // mem I/F
-always @(posedge clk) begin
-  mem_addr    <= rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-  mem_oe      <= MEMOE(ir[EM]) & {4{!stall[EM]}};
-  mem_wdata   <= rrs2_fwd;
-  mem_we      <= MEMWE(ir[EM]) & {4{!stall[EM]}};
-end
+wire[32-1:0] pre_mem_addr   = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
+wire[ 4-1:0] pre_mem_oe     = MEMOE(ir[EM]) & {4{!stall[EM]}};
+wire[32-1:0] pre_mem_wdata  = rrs2_fwd;
+wire[ 4-1:0] pre_mem_we     = MEMWE(ir[EM]) & {4{!stall[EM]}};
+always @(posedge clk) mem_addr  <= pre_mem_addr;
+always @(posedge clk) mem_oe    <= pre_mem_oe;
+always @(posedge clk) mem_wdata <= pre_mem_wdata;
+always @(posedge clk) mem_we    <= pre_mem_we;
 initial {mem_addr, mem_oe, mem_wdata, mem_we} = 0;
 
-wire[4-1:0] mem_read    = {4{~stall[EM]}} & MEMOE(ir[EM]) & ~MEMWE(ir[EM]);
-reg         mem_reading = 1'b0;
-wire        mem_miss    = mem_reading && !mem_valid;
+wire          mem_read      = pre_mem_oe[0] && !pre_mem_we[0];
+reg           mem_reading   = 1'b0;
+wire          mem_miss      = mem_reading && !mem_valid;
 always @(posedge clk) mem_reading <=
   rst         ? 1'b0 :
-  mem_read[0] ? 1'b1 :
+  mem_read    ? 1'b1 :
   mem_valid   ? 1'b0 :
                 mem_reading;
 
