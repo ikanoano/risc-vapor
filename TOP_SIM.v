@@ -45,7 +45,7 @@ initial begin
 end
 
 // cycle
-wire[64-1:0]  cycle = {n4.p.mcycleh, n4.p.mcycle};
+wire[64-1:0]  cycle = {n4.p.csr.mcycleh, n4.p.csr.mcycle};
 always @(posedge clk) begin
   if(cycle>MAX_CYCLE) begin
     $display("");

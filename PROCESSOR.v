@@ -43,63 +43,47 @@ wire          bpmiss;
 reg [WB:IF]   prev_stall=0;   // stall in last cycle
 reg [WB:IF]   prev_insertb=0; // insertb in last cycle
 reg           prev_bflush=0;  // bflush in last cycle
-always @(posedge clk) prev_bflush   <= bflush;
 always @(posedge clk) prev_stall    <= stall;
 always @(posedge clk) prev_insertb  <= insertb;
-
+always @(posedge clk) prev_bflush   <= bflush;
 
 // Program Counters for each stage
-wire[32-1:0]  pc[IF:WB];
-reg [32-1:0]  _pc[IF:WB];
-wire[32-1:0]  next_pc_if =
-  rst                       ? BOOT        :
-  bflush                    ? btarget     :
-  stall[IF]                 ? pc[IF]      :
-                              pc[IF]+4;
+reg [32-1:0]  pc_if_no_bpred=0;
+reg [32-1:0]  pc[IF:WB];
 integer i;
+
+always @(posedge clk) pc_if_no_bpred <=
+  rst             ? BOOT        :
+  bflush          ? btarget     :
+  stall[IF]       ? pc[IF]      :
+                    pc[IF]+4;
+always @(*) pc[IF] = bptaken[ID] ? bptarget_id : pc_if_no_bpred; // combinational
 always @(posedge clk) begin
-  _pc[IF] <=  next_pc_if;
-  for(i=ID; i<=WB; i=i+1) _pc[i] <=
-    rst                       ? BOOT        :
-    stall[i]                  ? pc[i]       :
-                                pc[i-1];
+  for(i=ID; i<=WB; i=i+1) pc[i] <= // sequential
+    rst           ? BOOT        :
+    stall[i]      ? pc[i]       :
+                    pc[i-1];
 end
-assign  pc[IF]  = bptaken[ID] ? bptarget_id : _pc[IF];
-assign  pc[ID]  = _pc[ID];
-assign  pc[EM]  = _pc[EM];
-assign  pc[WB]  = _pc[WB];
 
 // Instruction Registers for each stage
-wire[32-1:0]  ir[ID:WB];
-reg [32-1:0]  _ir[EM:WB];
-assign  ir[ID]  =
-  rst                       ? `NOP        :
-  prev_bflush               ? `NOP        :
-  prev_insertb[IF]          ? `NOP        :
+reg [32-1:0]  ir[ID:WB];
+always @(*)           ir[ID]  = // combinational
+    rst                     ? `NOP        :
+    prev_bflush             ? `NOP        :
+    prev_insertb[IF]        ? `NOP        :
                               imem_rdata;
-assign  ir[EM]  = _ir[EM];
-always @(posedge clk) _ir[EM] <=
+always @(posedge clk) ir[EM] <= // sequential
   rst                       ? `NOP        :
   bflush                    ? `NOP        :
   insertb[ID]               ? `NOP        :
   stall[EM]                 ? ir[EM]      :
                               ir[ID];
-assign  ir[WB]  = _ir[WB];
-always @(posedge clk) _ir[WB] <=
+always @(posedge clk) ir[WB] <= // sequential
   rst                       ? `NOP        :
   insertb[EM]               ? `NOP        :
   stall[WB]                 ? ir[WB]      :
                               ir[EM];
-initial {_ir[EM], _ir[WB]} = 0;
-
-// control and status registers
-wire[32-1:0]  mhartid=0;                                              // hf14
-wire[32-1:0]  misa={2'h1, 4'h0, 26'b00000000000000000100000000};      // h301
-reg [32-1:0]  mtvec=BOOT;                                             // h305
-reg [32-1:0]  mscratch, mepc, mcause;                                 // h34x
-reg [32-1:0]  mcycle, mcycleh;                                        // hbxx
-always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle}+64'h1);
-assign        cycle = mcycle;
+initial {ir[ID], ir[EM], ir[WB]} = 0;
 
 // Instruction Fetch stage ========================================
 // imem I/F
@@ -145,8 +129,8 @@ reg           isecall, ismret;
 reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
 reg [ 8-1:0]  bcond=8'hxx;
 always @(posedge clk) if(!stall[EM]) begin
-  isecall   <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
-  ismret    <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+  isecall <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
+  ismret  <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
   btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
   btarget_jalr  <= pre_rrs1 +IIMM(ir[ID]);
   btarget_branch<= pc[ID]   +BIMM(ir[ID]);
@@ -169,7 +153,8 @@ assign  stall_req[ID] = imem_miss || (
 // Execute and Memory access stage ========================================
 wire[ 5-1:0]  op_em = OPCODE(ir[EM]);
 wire[32-1:0]  arslt;
-reg [32-1:0]  urslt, jrslt, crslt;
+reg [32-1:0]  urslt, jrslt;
+wire[32-1:0]  crslt;
 
 // rrs1 rrs2 forwarding
 wire[32-1:0]  rrs1_fwd = RS1(ir[EM])==RD(ir[WB]) && GPRWE(ir[WB]) ? rrd : rrs1;
@@ -194,39 +179,20 @@ always @(posedge clk) if(!stall[WB]) begin
   // JAL and JALR result
   jrslt <= pc[EM]+4;  // rrd <- pc+4
 end
-// CSR* result
-always @(posedge clk) begin
-  // CSR read
-  case(ir[EM][20+:12])
-    12'hf14: crslt <= mhartid;
-    12'h301: crslt <= misa;
-    12'h305: crslt <= mtvec & ~32'b11;
-    12'h340: crslt <= mscratch;
-    12'h341: crslt <= mepc;
-    12'h342: crslt <= mcause;
-    12'hb00: crslt <= mcycle;
-    12'hb80: crslt <= mcycleh;
-    default: crslt <= 32'h0;
-  endcase
 
-  // CSR write
-  if(op_em==`SYSTEM) begin
-    if(FUNCT3(ir[EM])==3'h0) begin
-      case(ir[EM][21])
-        1'b0: begin mepc<=pc[EM]; mcause<=32'hb; end // ECALL
-        1'b1: begin end // MRET
-      endcase
-    end else begin
-      case(ir[EM][20+:12])
-        12'h305: `CSRUPDATE(mtvec,    rrs1_fwd, ir[EM])
-        12'h340: `CSRUPDATE(mscratch, rrs1_fwd, ir[EM])
-        12'h341: `CSRUPDATE(mepc,     rrs1_fwd, ir[EM])
-        12'h342: `CSRUPDATE(mcause,   rrs1_fwd, ir[EM])
-        default: begin end
-      endcase
-    end
-  end
-end
+// CSR result
+wire[32-1:0]  mtvec, mepc;
+CSR #(.BOOT(BOOT)) csr (
+  .clk(clk),
+  .rst(rst),
+  .pc(pc[EM]),
+  .ir(ir[EM]),
+  .rrs1(rrs1_fwd),
+  .crslt(crslt),
+  .mtvec(mtvec),
+  .mepc(mepc),
+  .mcycle(cycle)
+);
 
 // result selector
 reg sel_mem, sel_urslt, sel_jrslt, sel_crslt;
@@ -331,18 +297,19 @@ always @(*) begin
     rst               ? 2'b00 :
                         bpdata_id;
 end
+integer j;
 always @(posedge clk) begin
-  for(i=EM; i<=WB; i=i+1) bptaken[i] <=
+  for(j=EM; j<=WB; j=j+1) bptaken[j] <=
     rst           ? 1'b0        :
-    i==EM&&bflush ? 1'b0        :
-    insertb[i-1]  ? 1'b0        :
-    stall[i]      ? bptaken[i]  :
-                    bptaken[i-1];
-  for(i=EM; i<=WB; i=i+1) bpdata[i] <=
+    j==EM&&bflush ? 1'b0        :
+    insertb[j-1]  ? 1'b0        :
+    stall[j]      ? bptaken[j]  :
+                    bptaken[j-1];
+  for(j=EM; j<=WB; j=j+1) bpdata[j] <=
     rst           ? 2'b00       :
-    insertb[i-1]  ? 2'bxx       : // this data should not be written
-    stall[i]      ? bpdata[i]   :
-                    bpdata[i-1];
+    insertb[j-1]  ? 2'bxx       : // this data should not be written to bp
+    stall[j]      ? bpdata[j]   :
+                    bpdata[j-1];
 end
 
 // instrunction parser
