@@ -275,12 +275,12 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
 
   if(!n4.p.prev_insertb[n4.p.EM]) begin  // skip if instruction in WB is bubble
     if(n4.p.mem_reading && n4.p.mem_valid) begin
-      $sformat(loadstr, "dmem[h%x]", n4.mem_addr);
+      $sformat(loadstr, "dmem[h%x]", n4.prev_mem_addr); // FIXME not accurate addr
     end else begin
       loadstr = "";
     end
     if(n4.p.gpr.we)
-      $sformat(wbstr, "(h%x) -> %s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
+      $sformat(wbstr, "(h%x) ->%s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
     else
       wbstr = "";
 

@@ -327,12 +327,12 @@ BIMODAL_PREDICTOR #(.SCALE(BTB_PC_WIDTH)) bp (
   .fb_data(bpdata[EM])
 );
 always @(*) begin
-  bptaken[ID] <=
+  bptaken[ID] =
     rst               ? 1'b0  :
     prev_bflush       ? 1'b0  :
     prev_insertb[IF]  ? 1'b0  :
                         bptaken_id;
-  bpdata[ID]  <=
+  bpdata[ID]  =
     rst               ? 2'b00 :
                         bpdata_id;
 end
