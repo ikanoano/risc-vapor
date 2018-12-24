@@ -148,21 +148,24 @@ UARTTX #(
 );
 
 // instruction memory
-RAM #(.SCALE(16)) imem (
+BARERAM #(
+  .WIDTH(32),
+  .SCALE(16-2)
+) imem (
   .clk(clk),
   .rst(rst),
 
-  .oe0(imem_oe | init_we),
-  .addr0({init_done ? imem_addr[2+:14] : init_waddr[2+:14], 2'b00}),
+  .oe0(imem_oe),
+  .addr0(imem_addr[2+:14]),
   .rdata0(imem_rdata),
-  .wdata0(init_wdata),
-  .we0({4{init_we && init_waddr<32'h00010000}}),
+  .wdata0(32'b0),
+  .we0(1'b0),
 
-  .oe1(1'b0),
-  .addr1(16'h0),
+  .oe1(init_we),
+  .addr1(init_waddr[2+:14]),
   .rdata1(),
-  .wdata1(32'h0),
-  .we1(4'b0)
+  .wdata1(init_wdata),
+  .we1(init_we && init_waddr<32'h00010000)
 );
 always @(posedge clk) imem_valid <= imem_oe;  // never misses
 

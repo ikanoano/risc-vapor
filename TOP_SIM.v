@@ -113,10 +113,7 @@ initial begin
 
     for(i=0; i<2**ISCALE; i=i+1) begin
       dummy = $fread(fdata, fd);
-      n4.imem.ram3[i]  = fdata[ 0+:8];
-      n4.imem.ram2[i]  = fdata[ 8+:8];
-      n4.imem.ram1[i]  = fdata[16+:8];
-      n4.imem.ram0[i]  = fdata[24+:8];
+      n4.imem.ram[i] = {fdata[0+:8], fdata[8+:8],  fdata[16+:8], fdata[24+:8]};
     end
 
     dummy = $rewind(fd);
