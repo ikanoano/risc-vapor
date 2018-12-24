@@ -26,7 +26,14 @@ module TOP_NEXYS4DDR (
   output  wire [1:0]    ddr2_dm,
   output  wire          ddr2_odt
 );
-localparam  CPU_FREQ  = 120000000;
+// Params for detemining frequency - Refer the summary tab in clocking wizard
+localparam  integer DIVIDE_COUNTER  = 5;
+localparam  real    MULT_COUNTER    = 50.250;
+localparam  real    DEVIDER_VALUE1  = 8.375;
+localparam  real    CPU_FREQ_F= 100000000.0/DIVIDE_COUNTER*MULT_COUNTER/DEVIDER_VALUE1;
+localparam  integer CPU_FREQ  = CPU_FREQ_F;
+
+localparam  BAUDRATE  = 1000000;
 localparam  DOWN=4, RIGHT=3, LEFT=2, UP=1, CENTER=0;
 
 // clocking
@@ -34,7 +41,11 @@ wire  clk100mhz_buf;
 IBUF bufclk100 (.O (clk100mhz_buf), .I (clk100mhz));
 
 wire  clk, clk_mig_200, locked, locked_ref, locked_mig, calib_done;
-GENCLK_CPU  genclkc (
+GENCLK_CPU #(
+  .DIVIDE_COUNTER(DIVIDE_COUNTER),
+  .MULT_COUNTER(MULT_COUNTER),
+  .DEVIDER_VALUE1(DEVIDER_VALUE1)
+) genclkc (
   .clk_in(clk100mhz_buf),
   .reset(~cpu_resetn),
   .clk_out(clk),
@@ -109,7 +120,9 @@ always @(posedge clk) prev_mem_we    <= mem_we;
 // program loader
 wire[32-1:0]  init_waddr, init_wdata;
 wire          init_we;
-PLOADER pl (
+PLOADER #(
+  .SERIAL_WCNT(CPU_FREQ/BAUDRATE)
+) pl (
   .CLK(clk),
   .RST_X(~rst),
   .RXD(uart_rxd),
@@ -120,7 +133,6 @@ PLOADER pl (
 );
 
 // uart tx
-localparam  BAUDRATE  = 1000000;
 reg [ 8-1:0]  tx_wdata;
 reg           tx_we;
 wire          tx_ready;
@@ -275,6 +287,8 @@ assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 // LEDs
 wire[31:0] disp = (btn[UP]) ? cycle : mem_addr;
 M_7SEGCON m_7seg(clk, disp, cs, an);
+
+always @(posedge clk) led <= init_waddr[3+:16];
 
 endmodule
 

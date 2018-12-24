@@ -4,7 +4,8 @@
 /* Program Loader: Initialize the main memory, copy memory image to the main memory                   */
 /******************************************************************************************************/
 module PLOADER #(
-    parameter PROG_SIZE = 512*1024
+  parameter SERIAL_WCNT = 50,
+  parameter PROG_SIZE   = 512*1024
 ) (
   input   wire        CLK, RST_X, RXD,
   output  reg [31:0]  ADDR,
@@ -17,7 +18,9 @@ module PLOADER #(
 
     wire SER_EN;
     wire [7:0] SER_DATA;
-    UARTRX serc (CLK, RST_X, RXD, SER_DATA, SER_EN);
+    UARTRX #(.SERIAL_WCNT(SERIAL_WCNT)) serc (
+      CLK, RST_X, RXD, SER_DATA, SER_EN
+    );
 
     always @(posedge CLK) begin
         if(!RST_X) begin

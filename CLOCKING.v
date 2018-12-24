@@ -1,7 +1,11 @@
 `default_nettype none
 `timescale 1ps/1ps
 
-module GENCLK_CPU (
+module GENCLK_CPU #(
+  parameter integer DIVIDE_COUNTER  = 1,
+  parameter real    MULT_COUNTER    = 10,
+  parameter real    DEVIDER_VALUE1  = 10
+) (
   input   wire      clk_in,
   input   wire      reset,
   output  wire      clk_out,
@@ -16,11 +20,11 @@ module GENCLK_CPU (
     .CLKOUT4_CASCADE      ("FALSE"),
     .COMPENSATION         ("ZHOLD"),
     .STARTUP_WAIT         ("FALSE"),
-    .DIVCLK_DIVIDE        (5),        // Devide Counter
-    .CLKFBOUT_MULT_F      (50.250),   // Mult Counter
+    .DIVCLK_DIVIDE        (DIVIDE_COUNTER), // Devide Counter
+    .CLKFBOUT_MULT_F      (MULT_COUNTER),   // Mult Counter
     .CLKFBOUT_PHASE       (0.000),
     .CLKFBOUT_USE_FINE_PS ("FALSE"),
-    .CLKOUT0_DIVIDE_F     (8.375),    // Devider Value of clk_out1
+    .CLKOUT0_DIVIDE_F     (DEVIDER_VALUE1), // Devider Value of clk_out1
     .CLKOUT0_PHASE        (0.000),
     .CLKOUT0_DUTY_CYCLE   (0.500),
     .CLKOUT0_USE_FINE_PS  ("FALSE"),
