@@ -24,7 +24,7 @@ module PLOADER #(
             {ADDR, DATA, WE, waddr, DONE} <= 0;
         end else begin
             if(DONE==0 && SER_EN) begin
-                ADDR  <= waddr;
+                ADDR  <= waddr & ~32'h3;
                 //ADDR  <= (waddr<32'h40000) ? waddr : {8'h04, 6'd0, waddr[17:0]};
                 DATA  <= {SER_DATA, DATA[31:8]};
                 WE    <= (waddr[1:0]==3);

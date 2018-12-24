@@ -73,9 +73,13 @@ reg           mem_valid=1'b0;
 wire          mem_ready;
 
 wire[32-1:0]  cycle;
+wire          init_done;
+
+reg rst_proc=1'b0;
+always @(posedge clk) rst_proc <= rst || !init_done;
 PROCESSOR p (
   .clk(clk),
-  .rst(rst),
+  .rst(rst_proc),
 
   .imem_addr(imem_addr),
   .imem_oe(imem_oe),
@@ -104,7 +108,7 @@ always @(posedge clk) prev_mem_we    <= mem_we;
 
 // program loader
 wire[32-1:0]  init_waddr, init_wdata;
-wire          init_we,    init_done;
+wire          init_we;
 PLOADER pl (
   .CLK(clk),
   .RST_X(~rst),
