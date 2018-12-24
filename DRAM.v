@@ -39,13 +39,13 @@ module DRAM (
   assign      dram_busy   = reading | writing;
 
   // read address channel
-  reg [31:0]  S_AXI_araddr;   // out
-  reg         S_AXI_arvalid;  // out
-  wire        S_AXI_arready;  // in
+  reg [ 32-1:0] S_AXI_araddr=32'b0;   // out
+  reg           S_AXI_arvalid=1'b0;   // out
+  wire          S_AXI_arready;        // in
   // read data channel
-  wire[127:0] S_AXI_rdata;    // in
-  wire        S_AXI_rvalid;   // in
-  wire        S_AXI_rready = 1'b1; // out
+  wire[128-1:0] S_AXI_rdata;          // in
+  wire          S_AXI_rvalid;         // in
+  wire          S_AXI_rready = 1'b1;  // out
 
   // read
   always @(posedge clk) begin
@@ -67,16 +67,16 @@ module DRAM (
   end
 
   // write address channel
-  reg [31:0]  S_AXI_awaddr;   // out
-  reg         S_AXI_awvalid;  // out
-  wire        S_AXI_awready;  // in
+  reg [ 32-1:0] S_AXI_awaddr=32'b0;   // out
+  reg           S_AXI_awvalid=1'b0;   // out
+  wire          S_AXI_awready;        // in
   // write data channel
-  reg [127:0] S_AXI_wdata;    // out
-  reg [15:0]  S_AXI_wstrb;    // out
-  reg         S_AXI_wvalid;   // out
-  wire        S_AXI_wready;   // in
+  reg [128-1:0] S_AXI_wdata=128'b0;   // out
+  reg [ 16-1:0] S_AXI_wstrb=16'b0;    // out
+  reg           S_AXI_wvalid=1'b0;    // out
+  wire          S_AXI_wready;         // in
   // write response channel
-  wire        S_AXI_bvalid;
+  wire          S_AXI_bvalid;         // in
 
   // write
   always @(posedge clk) begin
