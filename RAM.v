@@ -63,7 +63,7 @@ module RAM #(
         (we1==4'b0011 && addr1[1:0]==2'd3) ||
         (we0==4'b1111 && addr0[1:0]!=2'd0) ||
         (we1==4'b1111 && addr1[1:0]!=2'd0))) begin
-      $display("Not implemented: non-aligned r/w: %b %b %b %b",
+      $display("%m Not implemented: non-aligned r/w: %b %b %b %b",
         we0, addr0[1:0], we1, addr1[1:0]);
       $finish();
     end

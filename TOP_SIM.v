@@ -4,8 +4,9 @@
 
 // Top module for simulation
 module TOP_SIM ();
-localparam  ISCALE  = 16-2;
-localparam  DSCALE  = 27-2;
+localparam  ISCALE  = 16-2; // 64KB  (16K word)
+localparam  DSCALE  = 27-2; // 128MB (32M word)
+localparam  IMAGESCALE  = (9+10)-2; // 512KB (128K word)
 reg clk=0, rst=0;
 
 // runtime parameter
@@ -13,6 +14,7 @@ integer         MAX_CYCLE;
 integer         TRACE;
 integer         DUMP;
 integer         TIME;
+integer         PLOAD;
 reg [256*8-1:0] IMAGE;
 initial begin
   if(!$value$plusargs("MAX_CYCLE=%d", MAX_CYCLE))     MAX_CYCLE=100000;
@@ -20,11 +22,13 @@ initial begin
   if(!$value$plusargs("IMAGE=%s", IMAGE))             IMAGE="image";
   if(!$value$plusargs("DUMP=%d", DUMP))               DUMP=0;
   if(!$value$plusargs("TIME=%d", TIME))               TIME=0;
+  if(!$value$plusargs("PLOAD=%d", PLOAD))             PLOAD=0;
   $display("MAX_CYCLE   = %0d", MAX_CYCLE);
   $display("TRACE       = %0d", TRACE);
   $display("DUMP        = %0d", DUMP);
   $display("IMAGE       = %0s", IMAGE);
   $display("TIME        = %0d", TIME);
+  $display("PLOAD       = %0d", PLOAD);
 end
 
 // generate clock
@@ -73,35 +77,76 @@ end
 // load image
 integer       fd, dummy, i;
 reg [32-1:0]  fdata;
+wire          prog_ready;
+reg           prog_we=0;
+reg [ 8-1:0]  prog_data=0;
 initial begin
   #1
-  $display("reading image: %0s", IMAGE);
   fd = $fopen(IMAGE, "rb");
   if(!fd) begin $display("failed to open image: %0s", IMAGE); $finish(); end
+  if(PLOAD) begin
+    // simulate program loading using uart
+    $display("load program using uart: %0s", IMAGE);
+    while(!rst) @(posedge clk);
+    while(rst)  @(posedge clk);
+    repeat(16)  @(posedge clk);
+    prog_we   = 1'b1;
+    for(i=0; i<2**IMAGESCALE; i=i+1) begin
+      if(!i[0+:10]) begin
+        $write(" %3dk(h%6x,%b)", i>>10, n4.pl.waddr, n4.pl.DONE);
+        $fflush();
+      end
+      dummy = $fread(fdata, fd);
+      prog_data = fdata[24+:8]; @(posedge prog_ready); @(posedge clk);
+      prog_data = fdata[16+:8]; @(posedge prog_ready); @(posedge clk);
+      prog_data = fdata[ 8+:8]; @(posedge prog_ready); @(posedge clk);
+      prog_data = fdata[ 0+:8]; @(posedge prog_ready); @(posedge clk);
+    end
+    prog_we   = 1'b0;
+    while(!n4.pl.DONE) begin
+      @(posedge clk) $write("(%6x, %b)", n4.pl.waddr, n4.pl.DONE);
+    end
+    $display("");
+  end else begin
+    // load program directly from an image file
+    $display("load program directly: %0s", IMAGE);
 
-  //dummy = $fread(n4.imem.rom.ram, fd); // simple but invalid indianness
-  //dummy = $fread(dmem.ram, fd);     // simple but invalid indianness
-  for(i=0; i<2**ISCALE; i=i+1) begin
-    dummy = $fread(fdata, fd);
-    n4.imem.ram3[i]  = fdata[ 0+:8];
-    n4.imem.ram2[i]  = fdata[ 8+:8];
-    n4.imem.ram1[i]  = fdata[16+:8];
-    n4.imem.ram0[i]  = fdata[24+:8];
+    for(i=0; i<2**ISCALE; i=i+1) begin
+      dummy = $fread(fdata, fd);
+      n4.imem.ram3[i]  = fdata[ 0+:8];
+      n4.imem.ram2[i]  = fdata[ 8+:8];
+      n4.imem.ram1[i]  = fdata[16+:8];
+      n4.imem.ram0[i]  = fdata[24+:8];
+    end
+
+    dummy = $rewind(fd);
+
+    for(i=0; i<2**IMAGESCALE && !$feof(fd); i=i+1) begin
+      dummy = $fread(fdata, fd);
+      n4.dram.dram.ram3[i]  = fdata[ 0+:8];
+      n4.dram.dram.ram2[i]  = fdata[ 8+:8];
+      n4.dram.dram.ram1[i]  = fdata[16+:8];
+      n4.dram.dram.ram0[i]  = fdata[24+:8];
+    end
+
+    force n4.pl.DONE = 1;
   end
-
-  dummy = $rewind(fd);
-
-  for(i=0; i<2**DSCALE && !$feof(fd); i=i+1) begin
-    dummy = $fread(fdata, fd);
-    n4.dram.dram.ram3[i]  = fdata[ 0+:8];
-    n4.dram.dram.ram2[i]  = fdata[ 8+:8];
-    n4.dram.dram.ram1[i]  = fdata[16+:8];
-    n4.dram.dram.ram0[i]  = fdata[24+:8];
-  end
-
-  force n4.pl.DONE = 1;
   $display("done");
 end
+
+localparam SERIAL_WCNT = 2;
+wire  prog_txd;
+UARTTX #(.SERIAL_WCNT(SERIAL_WCNT)) sender (
+  .CLK(clk),
+  .RST_X(~rst),
+  .WE(prog_we),
+  .DATA(prog_data),
+  .TXD(prog_txd),
+  .READY(prog_ready)
+);
+defparam  n4.ut.SERIAL_WCNT = SERIAL_WCNT;
+defparam  n4.pl.serc.SERIAL_WCNT = SERIAL_WCNT;
+
 
 // cpu on nexys4 ddr
 TOP_NEXYS4DDR n4 (
@@ -109,7 +154,7 @@ TOP_NEXYS4DDR n4 (
   .cpu_resetn(~rst),
   .btn(5'h0),
   .sw(16'h0),
-  .uart_rxd(1'b0)
+  .uart_rxd(prog_txd)
 );
 
 // peep the memory mapped IO
