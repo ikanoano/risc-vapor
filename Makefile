@@ -26,6 +26,7 @@ OBJS			=\
 	M_7SEGCON.v\
 	UART.v\
 	PSEUDO.v\
+	DRAM.v\
 	DCACHE.v\
 	TOP_NEXYS4DDR.v\
 	TOP_SIM.v

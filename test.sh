@@ -7,7 +7,7 @@ for elf in ./testbin/*.elf; do
   all=$((all+1))
   riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost $elf $target
   trace="`dirname $target`/`basename $elf`.trace"
-  make run-trace MAX_CYCLE=500 IMAGE=$target DUMP=0 &> $trace
+  make run-trace MAX_CYCLE=1000 IMAGE=$target DUMP=0 &> $trace
   if grep -q 'output: ' $trace && grep -q 'Abort' $trace; then
     result="OK"
     pass=$((pass+1))

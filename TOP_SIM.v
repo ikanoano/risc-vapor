@@ -120,10 +120,7 @@ initial begin
 
     for(i=0; i<2**IMAGESCALE && !$feof(fd); i=i+1) begin
       dummy = $fread(fdata, fd);
-      n4.dram.dram.ram3[i]  = fdata[ 0+:8];
-      n4.dram.dram.ram2[i]  = fdata[ 8+:8];
-      n4.dram.dram.ram1[i]  = fdata[16+:8];
-      n4.dram.dram.ram0[i]  = fdata[24+:8];
+      n4.dram.mb.slv_reg[i] = {fdata[0+:8], fdata[8+:8],  fdata[16+:8], fdata[24+:8]};
     end
 
     force n4.pl.DONE = 1;
@@ -220,7 +217,7 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
   //else            ibstr = "";
   if(TIME) $write("%8d ", $time);
   $write("%8s | ", stallstr);
-  if(TRACE && n4.dram.dram_reading) $write("reading dram");
+  if(TRACE && n4.dram.reading) $write("reading dram");
   if(stall[n4.p.WB]) begin
     $display("");
     disable trace;  // early return
