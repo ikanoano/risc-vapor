@@ -53,7 +53,7 @@ module DRAM (
       reading       <= ~S_AXI_rvalid;
       read_done     <=  S_AXI_rvalid;
       S_AXI_arvalid <= S_AXI_arvalid & ~S_AXI_arready;
-      if(S_AXI_rvalid) dram_rdata <= S_AXI_rdata[0+:32];
+      if(S_AXI_rvalid) dram_rdata <= S_AXI_rdata[0+:32] >> (8*S_AXI_araddr[1:0]);
     end else if(!writing) begin // idle
       reading       <= dram_oe & ~dram_we[0];
       read_done     <= 1'b0;
@@ -91,8 +91,8 @@ module DRAM (
       S_AXI_awvalid <= dram_we[0];
       S_AXI_wvalid  <= dram_we[0];
       if(dram_we[0]) S_AXI_awaddr       <= dram_addr;
-      if(dram_we[0]) S_AXI_wdata[0+:32] <= dram_wdata;
-      if(dram_we[0]) S_AXI_wstrb[0+:4]  <= dram_we;
+      if(dram_we[0]) S_AXI_wdata[0+:32] <= dram_wdata << (8*dram_addr[1:0]);
+      if(dram_we[0]) S_AXI_wstrb[0+:4]  <= dram_we << (dram_addr[1:0]);
     end else begin  // reading
       writing       <= 1'b0;
       write_done    <= 1'b0;
@@ -108,7 +108,7 @@ module DRAM (
     .calib_done(calib_done),
     .locked_mig(locked_mig),
     // read address channel
-    .S_AXI_araddr(S_AXI_araddr),
+    .S_AXI_araddr({S_AXI_araddr[2+:30], 2'b00}),
     .S_AXI_arburst(2'b00),
     .S_AXI_arcache(4'h0),
     .S_AXI_arid(1'b0),
@@ -120,7 +120,7 @@ module DRAM (
     .S_AXI_arsize(3'b111),
     .S_AXI_arvalid(S_AXI_arvalid),
     // write address channel
-    .S_AXI_awaddr(S_AXI_awaddr),
+    .S_AXI_awaddr({S_AXI_awaddr[2+:30], 2'b00}),
     .S_AXI_awburst(2'b00),
     .S_AXI_awcache(4'h0),
     .S_AXI_awid(1'b0),
