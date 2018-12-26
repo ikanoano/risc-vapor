@@ -151,7 +151,8 @@ module MIG_BLOCK (
   output  wire        ddr2_ras_n,
   output  wire        ddr2_we_n,
   output  wire        locked_mig,
-  input   wire        rst_mig
+  input   wire        rst_mig,
+  input   wire        rstn_axi
 );
   // Width of S_AXI data bus
   localparam  integer C_S_AXI_DATA_WIDTH  = 32;

@@ -104,6 +104,7 @@ module DRAM (
 
   MIG_BLOCK mb (
     .clk_axi(clk),
+    .rstn_axi(~rst),
     .clk_mig(clk_mig_200),  // fixed 200MHz
     .rst_mig(~locked_ref),
     .calib_done(calib_done),
