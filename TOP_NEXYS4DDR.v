@@ -9,7 +9,7 @@ module TOP_NEXYS4DDR (
   output  reg [16-1:0]  led,
   output  wire[3-1:0]   rgbled0,
   output  wire[3-1:0]   rgbled1,
-  output  wire[6:0]     cs,   // 7-seg cathode segments
+  output  wire[7:0]     cs,   // 7-seg cathode segments
   output  wire[7:0]     an,   // 7-seg common anode
   input   wire          uart_rxd,
   output  wire          uart_txd,
@@ -303,7 +303,7 @@ M_7SEGCON m_7seg(clk, disp, cs, an);
 always @(posedge clk) led <= ~init_waddr[3+:16];
 
 reg           ledmask=1'b0;
-always @(posedge clk) ledmask <= clkcnt[15+:4]==4'h0;
+always @(posedge clk) ledmask <= clkcnt[14+:5]==5'h0;
 //                          RED           GREEN       BLUE
 assign  rgbled0 = ledmask ? {locked_mig,  calib_done, locked_ref} : 3'd0;
 assign  rgbled1 = ledmask ? {clk1hz,      rst,        init_done} : 3'd0;
