@@ -3,7 +3,8 @@
 
 module DRAM (
   input   wire          clk,
-  input   wire          rst_mig,
+  input   wire          rst,
+  input   wire          locked_ref,
   input   wire          clk_mig_200,
 
   output  wire          calib_done,
@@ -104,7 +105,7 @@ module DRAM (
   MIG_BLOCK mb (
     .clk_axi(clk),
     .clk_mig(clk_mig_200),  // fixed 200MHz
-    .rst_mig(rst_mig),
+    .rst_mig(~locked_ref),
     .calib_done(calib_done),
     .locked_mig(locked_mig),
     // read address channel
@@ -117,6 +118,7 @@ module DRAM (
     .S_AXI_arprot(3'b000),
     .S_AXI_arqos(4'h0),
     .S_AXI_arready(S_AXI_arready),
+    .S_AXI_arregion(4'h0),
     .S_AXI_arsize(3'b111),
     .S_AXI_arvalid(S_AXI_arvalid),
     // write address channel
@@ -129,6 +131,7 @@ module DRAM (
     .S_AXI_awprot(3'b000),
     .S_AXI_awqos(4'h0),
     .S_AXI_awready(S_AXI_awready),
+    .S_AXI_awregion(4'h0),
     .S_AXI_awsize(3'b111),
     .S_AXI_awvalid(S_AXI_awvalid),
     // read data channel

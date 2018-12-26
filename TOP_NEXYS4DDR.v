@@ -7,6 +7,8 @@ module TOP_NEXYS4DDR (
   input   wire[ 5-1:0]  btn,  // {down, right, left, up, center}
   input   wire[16-1:0]  sw,
   output  reg [16-1:0]  led,
+  output  wire[3-1:0]   rgbled0,
+  output  wire[3-1:0]   rgbled1,
   output  wire[6:0]     cs,   // 7-seg cathode segments
   output  wire[7:0]     an,   // 7-seg common anode
   input   wire          uart_rxd,
@@ -58,6 +60,11 @@ GENCLK_REF  genclkr (
   .locked(locked_ref)
 );
 
+reg [32-1:0]  clkcnt=32'b0;
+reg           clk1hz=1'b0;
+always @(posedge clk) clkcnt  <= clkcnt<CPU_FREQ-1 ? clkcnt+1 : 0;
+always @(posedge clk) clk1hz  <= clkcnt<CPU_FREQ/2;
+
 // synchronize reset
 wire      rst_async = ~locked | ~locked_mig | ~locked_ref |
                       ~cpu_resetn | ~calib_done;
@@ -86,8 +93,8 @@ wire          mem_ready;
 wire[32-1:0]  cycle;
 wire          init_done;
 
-reg rst_proc=1'b0;
-always @(posedge clk) rst_proc <= rst || !init_done;
+reg halt=1'b0, rst_proc=1'b0;
+always @(posedge clk) rst_proc <= rst || !init_done || halt;
 PROCESSOR p (
   .clk(clk),
   .rst(rst_proc),
@@ -176,7 +183,8 @@ reg [32-1:0]  mmio_rdata = 0;
 reg           mmio_valid = 1'b0;
 always @(posedge clk) begin
   // write halt
-  if(mmio_we[0] && mem_addr[0+:16]==16'h0000) begin /* to be implemented */ end
+  if(rst) halt <= 1'b0;
+  else if(mmio_we[0] && mem_addr[0+:16]==16'h0000) halt<=1'b1;
   // write to_host
   if(mmio_we[0] && mem_addr[0+:16]==16'h0100) begin
     tx_wdata  <= mem_wdata[0+:8];
@@ -247,11 +255,12 @@ DCACHE #(
 //  write always
 DRAM dram (
   .clk(clk),
-  .rst_mig(rst),
+  .rst(rst),
   .clk_mig_200(clk_mig_200),
 
   .calib_done(calib_done),
   .locked_mig(locked_mig),
+  .locked_ref(locked_ref),
 
   .dram_oe(dram_oe),
   .dram_addr(dram_addr),
@@ -291,7 +300,13 @@ assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 wire[31:0] disp = (btn[UP]) ? cycle : mem_addr;
 M_7SEGCON m_7seg(clk, disp, cs, an);
 
-always @(posedge clk) led <= init_waddr[3+:16];
+always @(posedge clk) led <= ~init_waddr[3+:16];
+
+reg           ledmask=1'b0;
+always @(posedge clk) ledmask <= clkcnt[15+:4]==4'h0;
+//                          RED           GREEN       BLUE
+assign  rgbled0 = ledmask ? {locked_mig,  calib_done, locked_ref} : 3'd0;
+assign  rgbled1 = ledmask ? {clk1hz,      rst,        init_done} : 3'd0;
 
 endmodule
 
