@@ -247,7 +247,7 @@ proc write_mig_file_MIG_BLOCK_mig_7series_0_1 { str_mig_prj_filepath } {
    puts $mig_prj_file {        <AXIParameters>}
    puts $mig_prj_file {            <C0_C_RD_WR_ARB_ALGORITHM>RD_PRI_REG</C0_C_RD_WR_ARB_ALGORITHM>}
    puts $mig_prj_file {            <C0_S_AXI_ADDR_WIDTH>27</C0_S_AXI_ADDR_WIDTH>}
-   puts $mig_prj_file {            <C0_S_AXI_DATA_WIDTH>128</C0_S_AXI_DATA_WIDTH>}
+   puts $mig_prj_file {            <C0_S_AXI_DATA_WIDTH>32</C0_S_AXI_DATA_WIDTH>}
    puts $mig_prj_file {            <C0_S_AXI_ID_WIDTH>1</C0_S_AXI_ID_WIDTH>}
    puts $mig_prj_file {            <C0_S_AXI_SUPPORTS_NARROW_BURST>1</C0_S_AXI_SUPPORTS_NARROW_BURST>}
    puts $mig_prj_file {        </AXIParameters>}
@@ -304,7 +304,7 @@ proc create_root_design { parentCell } {
    CONFIG.ARUSER_WIDTH {0} \
    CONFIG.AWUSER_WIDTH {0} \
    CONFIG.BUSER_WIDTH {0} \
-   CONFIG.DATA_WIDTH {128} \
+   CONFIG.DATA_WIDTH {32} \
    CONFIG.FREQ_HZ {50000000} \
    CONFIG.HAS_BRESP {1} \
    CONFIG.HAS_BURST {1} \
@@ -312,7 +312,7 @@ proc create_root_design { parentCell } {
    CONFIG.HAS_LOCK {1} \
    CONFIG.HAS_PROT {1} \
    CONFIG.HAS_QOS {1} \
-   CONFIG.HAS_REGION {0} \
+   CONFIG.HAS_REGION {1} \
    CONFIG.HAS_RRESP {1} \
    CONFIG.HAS_WSTRB {1} \
    CONFIG.ID_WIDTH {1} \
@@ -352,6 +352,7 @@ proc create_root_design { parentCell } {
   # Create instance: axi_clock_converter_0, and set properties
   set axi_clock_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0 ]
   set_property -dict [ list \
+   CONFIG.DATA_WIDTH {32} \
    CONFIG.SYNCHRONIZATION_STAGES {2} \
  ] $axi_clock_converter_0
 
@@ -371,13 +372,8 @@ proc create_root_design { parentCell } {
    CONFIG.XML_INPUT_FILE {mig_a.prj} \
  ] $mig_7series_0
 
-  # Create instance: util_vector_logic_0, and set properties
-  set util_vector_logic_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 util_vector_logic_0 ]
-  set_property -dict [ list \
-   CONFIG.C_OPERATION {not} \
-   CONFIG.C_SIZE {1} \
-   CONFIG.LOGO_FILE {data/sym_notgate.png} \
- ] $util_vector_logic_0
+  # Create instance: proc_sys_reset_0, and set properties
+  set proc_sys_reset_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_0 ]
 
   # Create interface connections
   connect_bd_intf_net -intf_net S_AXI_1 [get_bd_intf_ports S_AXI] [get_bd_intf_pins axi_clock_converter_0/S_AXI]
@@ -386,14 +382,14 @@ proc create_root_design { parentCell } {
 
   # Create port connections
   connect_bd_net -net mig_7series_0_init_calib_complete [get_bd_ports calib_done] [get_bd_pins mig_7series_0/init_calib_complete]
-  connect_bd_net -net mig_7series_0_mmcm_locked [get_bd_ports locked_mig] [get_bd_pins mig_7series_0/mmcm_locked]
-  connect_bd_net -net mig_7series_0_ui_clk [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins mig_7series_0/ui_clk]
-  connect_bd_net -net mig_7series_0_ui_clk_sync_rst [get_bd_pins mig_7series_0/ui_clk_sync_rst] [get_bd_pins util_vector_logic_0/Op1]
+  connect_bd_net -net mig_7series_0_mmcm_locked [get_bd_ports locked_mig] [get_bd_pins mig_7series_0/mmcm_locked] [get_bd_pins proc_sys_reset_0/dcm_locked]
+  connect_bd_net -net mig_7series_0_ui_clk [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins mig_7series_0/ui_clk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
+  connect_bd_net -net mig_7series_0_ui_clk_sync_rst [get_bd_pins mig_7series_0/ui_clk_sync_rst] [get_bd_pins proc_sys_reset_0/ext_reset_in]
+  connect_bd_net -net proc_sys_reset_0_peripheral_aresetn [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins mig_7series_0/aresetn] [get_bd_pins proc_sys_reset_0/peripheral_aresetn]
   connect_bd_net -net s_axi_aclk_1 [get_bd_ports clk_axi] [get_bd_pins axi_clock_converter_0/s_axi_aclk]
   connect_bd_net -net s_axi_aresetn_0_1 [get_bd_ports rstn_axi] [get_bd_pins axi_clock_converter_0/s_axi_aresetn]
   connect_bd_net -net sys_clk_i_1 [get_bd_ports clk_mig] [get_bd_pins mig_7series_0/sys_clk_i]
   connect_bd_net -net sys_rst_1 [get_bd_ports rst_mig] [get_bd_pins mig_7series_0/sys_rst]
-  connect_bd_net -net util_vector_logic_0_Res [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins mig_7series_0/aresetn] [get_bd_pins util_vector_logic_0/Res]
 
   # Create address segments
   create_bd_addr_seg -range 0x08000000 -offset 0x00000000 [get_bd_addr_spaces S_AXI] [get_bd_addr_segs mig_7series_0/memmap/memaddr] SEG_mig_7series_0_memaddr

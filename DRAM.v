@@ -120,7 +120,7 @@ module DRAM (
     .S_AXI_arqos(4'h0),
     .S_AXI_arready(S_AXI_arready),
     .S_AXI_arregion(4'h0),
-    .S_AXI_arsize(3'b111),
+    .S_AXI_arsize(3'b101),
     .S_AXI_arvalid(S_AXI_arvalid),
     // write address channel
     .S_AXI_awaddr({S_AXI_awaddr[2+:30], 2'b00}),
@@ -133,7 +133,7 @@ module DRAM (
     .S_AXI_awqos(4'h0),
     .S_AXI_awready(S_AXI_awready),
     .S_AXI_awregion(4'h0),
-    .S_AXI_awsize(3'b111),
+    .S_AXI_awsize(3'b101),
     .S_AXI_awvalid(S_AXI_awvalid),
     // read data channel
     .S_AXI_rdata(S_AXI_rdata),
