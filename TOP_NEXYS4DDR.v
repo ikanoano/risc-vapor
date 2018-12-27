@@ -248,7 +248,9 @@ DCACHE #(
   .load_oe(dram_valid),
   .load_addr(last_dram_addr[0+:27]),
   .load_wdata(dram_rdata),
-  .load_we({4{dram_valid}} & last_dram_we)
+  .load_we({4{dram_valid}} & last_dram_we),
+
+  .clear(init_we)
 );
 
 // dram: read/write after 1 cycle from dmem_oe/dmem_we assertion

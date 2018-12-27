@@ -19,7 +19,9 @@ module DCACHE #(
   input   wire                load_oe,
   input   wire[MEM_SCALE-1:0] load_addr,
   input   wire[       32-1:0] load_wdata,
-  input   wire[        4-1:0] load_we
+  input   wire[        4-1:0] load_we,
+  // clear
+  input   wire                clear
 );
   localparam WIDTH_TAG = MEM_SCALE-SCALE;
 
@@ -42,6 +44,8 @@ module DCACHE #(
     .we1(load_we),
     .rdata1()
   );
+  reg [SCALE-1:0] clear_addr=0;
+  always @(posedge clk) clear_addr <= clear_addr + 4;
 
   reg [WIDTH_TAG-1:0] rtag=0;
   reg [        4-1:0] rvalid=0;
@@ -49,10 +53,11 @@ module DCACHE #(
 
   reg [MEM_SCALE-1:0] waddr=0;
   reg [        4-1:0] wwe=0;
-  always @(posedge clk) waddr     <= we[0] ? addr : load_addr;
-  always @(posedge clk) wwe       <= we | load_we;
-  wire[WIDTH_TAG-1:0] wtag        = waddr[SCALE+:WIDTH_TAG];
-  wire[        4-1:0] wvalid      = (wwe<<waddr[1:0]) | (rtag==wtag ? rvalid : 4'h0);
+  always @(posedge clk) waddr <= clear ? clear_addr : (we[0] ? addr : load_addr);
+  always @(posedge clk) wwe   <= {4{clear}} | we | load_we;
+  wire[WIDTH_TAG-1:0] wtag    = waddr[SCALE+:WIDTH_TAG];
+  wire[        4-1:0] wvalid  =
+    clear ? 4'h0 : (wwe<<waddr[1:0]) | (rtag==wtag ? rvalid : 4'h0);
   always @(posedge clk) if(wwe[0]) valid_and_tag[waddr[2+:SCALE-2]] <= {wvalid, wtag};
 
   reg [        4-1:0] prev_oe=0;
