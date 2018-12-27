@@ -15,7 +15,7 @@ module GENCLK_CPU (
   output  wire      locked
 );
   assign  clk_out = clk_in;
-  assign  locked  = ~reset;
+  assign  #12345 locked  = ~reset;
 endmodule
 
 module GENCLK_REF (
@@ -25,7 +25,7 @@ module GENCLK_REF (
   output  wire      locked
 );
   assign  clk_out = clk_in;
-  assign  locked  = ~reset;
+  assign  #12345 locked  = ~reset;
 endmodule
 
 /*

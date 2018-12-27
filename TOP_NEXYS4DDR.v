@@ -90,7 +90,7 @@ reg [32-1:0]  mem_rdata=0;
 reg           mem_valid=1'b0;
 wire          mem_ready;
 
-wire[32-1:0]  cycle;
+wire[32-1:0]  cycle, pc;
 wire          init_done;
 
 reg halt=1'b0, rst_proc=1'b0;
@@ -112,7 +112,8 @@ PROCESSOR p (
   .mem_valid(mem_valid),
   .mem_ready(mem_ready),
 
-  .cycle(cycle)
+  .cycle(cycle),
+  .pc_disp(pc)
 );
 
 reg [32-1:0]  prev_mem_addr;
@@ -297,16 +298,22 @@ end
 assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 
 // LEDs
-wire[31:0] disp = (btn[UP]) ? cycle : mem_addr;
+reg [31:0] disp;
+always @(posedge clk) disp<=
+  (btn[CENTER]) ? pc        :
+  (btn[UP])     ? mem_addr  :
+                  cycle;
 M_7SEGCON m_7seg(clk, disp, cs, an);
 
-always @(posedge clk) led <= ~init_waddr[3+:16];
-
 reg           ledmask=1'b0;
-always @(posedge clk) ledmask <= clkcnt[14+:5]==5'h0;
+always @(posedge clk) ledmask <= clkcnt[17+:2]==2'h0;
+always @(posedge clk) led <= ledmask ? init_waddr[3+:16] : 16'h0000;
+
+reg           rgbledmask=1'b0;
+always @(posedge clk) rgbledmask <= clkcnt[13+:6]==6'h00;
 //                          RED           GREEN       BLUE
-assign  rgbled0 = ledmask ? {locked_mig,  calib_done, locked_ref} : 3'd0;
-assign  rgbled1 = ledmask ? {clk1hz,      rst,        init_done} : 3'd0;
+assign  rgbled0 = rgbledmask ? {locked_mig,  calib_done, locked_ref} : 3'd0;
+assign  rgbled1 = rgbledmask ? {clk1hz,      rst,        init_done} : 3'd0;
 
 endmodule
 

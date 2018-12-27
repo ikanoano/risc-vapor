@@ -1,12 +1,14 @@
 #!/bin/bash
 
-target="/tmp/target_image.bin"
 all=0
 pass=0
 for elf in ./testbin/*.elf; do
   all=$((all+1))
-  riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost $elf $target
+  target="/tmp/`basename $elf`.bin"
   trace="`dirname $target`/`basename $elf`.trace"
+  riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost $elf ${target}_
+  dd status=none if=/dev/zero bs=512k count=1 >> ${target}_
+  dd status=none if=${target}_ bs=512k count=1 > ${target}
   make run-trace MAX_CYCLE=1000 IMAGE=$target DUMP=0 &> $trace
   if grep -q 'output: ' $trace && grep -q 'Abort' $trace; then
     result="OK"

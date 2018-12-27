@@ -20,7 +20,8 @@ module PROCESSOR (
   input   wire          mem_valid,
   input   wire          mem_ready,
 
-  output  wire[32-1:0]  cycle
+  output  wire[32-1:0]  cycle,
+  output  wire[32-1:0]  pc_disp
 );
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
 localparam  BOOT = 32'h00000000;
@@ -64,6 +65,7 @@ always @(posedge clk) begin
     stall[i]      ? pc[i]       :
                     pc[i-1];
 end
+assign  pc_disp = pc[WB];
 
 // Instruction Registers for each stage
 reg [32-1:0]  ir[ID:WB];
