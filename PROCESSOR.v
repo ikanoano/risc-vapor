@@ -188,6 +188,7 @@ wire[32-1:0]  mtvec, mepc;
 CSR csr (
   .clk(clk),
   .rst(rst),
+  .halt(halt),
   .pc(pc[EM]),
   .ir(ir[EM]),
   .rrs1(rrs1_fwd),

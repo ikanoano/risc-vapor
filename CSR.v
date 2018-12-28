@@ -7,6 +7,7 @@
 module CSR (
   input   wire          clk,
   input   wire          rst,
+  input   wire          halt,
   input   wire[32-1:0]  pc,
   input   wire[32-1:0]  ir,
   input   wire[32-1:0]  rrs1,
@@ -24,8 +25,9 @@ initial       mtvec=`BOOT;                                            // h305
 reg [32-1:0]  mscratch, mcause;                                       // h34x
 initial       mepc=`BOOT;                                             // h34x
 reg [32-1:0]  mcycleh, mcycle;                                        // hbxx
-always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle}+64'h1);
 assign        cycle = {mcycleh, mcycle};
+always @(posedge clk) {mcycleh, mcycle} <=
+  rst ? 64'h0 : ({mcycleh, mcycle}+{63'h0, ~halt});
 
 // CSR* result
 always @(posedge clk) begin
