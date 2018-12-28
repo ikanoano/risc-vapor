@@ -90,7 +90,8 @@ reg [32-1:0]  mem_rdata=0;
 reg           mem_valid=1'b0;
 wire          mem_ready;
 
-wire[32-1:0]  cycle, pc;
+wire[32-1:0]  pc;
+wire[64-1:0]  cycle;
 wire          init_done;
 
 reg halt=1'b0, rst_proc=1'b0;
@@ -303,9 +304,11 @@ assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 // LEDs
 reg [31:0] disp;
 always @(posedge clk) disp<=
-  (btn[CENTER]) ? pc        :
-  (btn[UP])     ? mem_addr  :
-                  cycle;
+  init_we       ? init_waddr      :
+  (btn[CENTER]) ? pc              :
+  (btn[UP])     ? mem_addr        :
+  (btn[DOWN])   ? cycle[32+:32]   :
+                  cycle[ 0+:32];
 M_7SEGCON m_7seg(clk, disp, cs, an);
 
 reg           ledmask=1'b0;

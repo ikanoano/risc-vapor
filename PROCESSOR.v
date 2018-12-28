@@ -21,7 +21,7 @@ module PROCESSOR (
   input   wire          mem_valid,
   input   wire          mem_ready,
 
-  output  wire[32-1:0]  cycle,
+  output  wire[64-1:0]  cycle,
   output  wire[32-1:0]  pc_disp
 );
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
@@ -194,7 +194,7 @@ CSR #(.BOOT(BOOT)) csr (
   .crslt(crslt),
   .mtvec(mtvec),
   .mepc(mepc),
-  .mcycle(cycle)
+  .cycle(cycle)
 );
 
 // result selector

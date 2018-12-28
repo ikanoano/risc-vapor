@@ -15,7 +15,7 @@ module CSR #(
   output  reg [32-1:0]  crslt,
   output  reg [32-1:0]  mtvec,  // h305
   output  reg [32-1:0]  mepc,   // h34x
-  output  reg [32-1:0]  mcycle  // hbxx
+  output  wire[64-1:0]  cycle
 );
 
 // control and status registers
@@ -24,8 +24,9 @@ wire[32-1:0]  misa={2'h1, 4'h0, 26'b00000000000000000100000000};      // h301
 initial       mtvec=BOOT;                                             // h305
 reg [32-1:0]  mscratch, mcause;                                       // h34x
 initial       mepc=BOOT;                                              // h34x
-reg [32-1:0]  mcycleh;                                                // hbxx
+reg [32-1:0]  mcycleh, mcycle;                                        // hbxx
 always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle}+64'h1);
+assign        cycle = {mcycleh, mcycle};
 
 // CSR* result
 always @(posedge clk) begin
