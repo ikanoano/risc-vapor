@@ -28,6 +28,7 @@ OBJS			=\
 	PSEUDO.v\
 	DRAM.v\
 	DCACHE.v\
+	LFSR.v\
 	TOP_NEXYS4DDR.v\
 	TOP_SIM.v
 

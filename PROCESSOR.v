@@ -2,6 +2,7 @@
 `timescale 1ns/100ps
 `include "UTIL.v"
 `include "INST.v"
+`include "CONSTS.v"
 
 module PROCESSOR (
   input   wire          clk,
@@ -25,7 +26,6 @@ module PROCESSOR (
   output  wire[32-1:0]  pc_disp
 );
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
-localparam  BOOT = 32'h00000000;
 
 // stall request
 wire[WB:IF]   stall_req;
@@ -55,14 +55,14 @@ reg [32-1:0]  pc[IF:WB];
 integer i;
 
 always @(posedge clk) pc_if_no_bpred <=
-  rst             ? BOOT        :
+  rst             ? `BOOT       :
   bflush          ? btarget     :
   stall[IF]       ? pc[IF]      :
                     pc[IF]+4;
 always @(*) pc[IF] = bptaken[ID] ? bptarget_id : pc_if_no_bpred; // combinational
 always @(posedge clk) begin
   for(i=ID; i<=WB; i=i+1) pc[i] <= // sequential
-    rst           ? BOOT        :
+    rst           ? `BOOT       :
     stall[i]      ? pc[i]       :
                     pc[i-1];
 end
@@ -185,7 +185,7 @@ end
 
 // CSR result
 wire[32-1:0]  mtvec, mepc;
-CSR #(.BOOT(BOOT)) csr (
+CSR csr (
   .clk(clk),
   .rst(rst),
   .pc(pc[EM]),

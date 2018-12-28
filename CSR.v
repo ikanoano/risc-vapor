@@ -2,10 +2,9 @@
 `timescale 1ns/100ps
 `include "UTIL.v"
 `include "INST.v"
+`include "CONSTS.v"
 
-module CSR #(
-  parameter BOOT = 32'h00000000
-) (
+module CSR (
   input   wire          clk,
   input   wire          rst,
   input   wire[32-1:0]  pc,
@@ -21,9 +20,9 @@ module CSR #(
 // control and status registers
 wire[32-1:0]  mhartid=0;                                              // hf14
 wire[32-1:0]  misa={2'h1, 4'h0, 26'b00000000000000000100000000};      // h301
-initial       mtvec=BOOT;                                             // h305
+initial       mtvec=`BOOT;                                            // h305
 reg [32-1:0]  mscratch, mcause;                                       // h34x
-initial       mepc=BOOT;                                              // h34x
+initial       mepc=`BOOT;                                             // h34x
 reg [32-1:0]  mcycleh, mcycle;                                        // hbxx
 always @(posedge clk) {mcycleh, mcycle} <= rst ? 64'h0 : ({mcycleh, mcycle}+64'h1);
 assign        cycle = {mcycleh, mcycle};

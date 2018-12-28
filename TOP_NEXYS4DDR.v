@@ -1,5 +1,6 @@
 `default_nettype none
 `timescale 1ns/100ps
+`include "CONSTS.v"
 
 module TOP_NEXYS4DDR (
   input   wire          clk100mhz,
@@ -184,28 +185,39 @@ wire          mmio_oe = mem_oe[0] && mem_addr[28+:4]==4'hf;
 wire[ 4-1:0]  mmio_we = {4{mmio_oe}} & mem_we;
 reg [32-1:0]  mmio_rdata = 0;
 reg           mmio_valid = 1'b0;
+
+reg [32-1:0]  seg7;
+wire[32-1:0]  rnd;
 always @(posedge clk) begin
-  // write halt
-  if(rst) halt <= 1'b0;
-  else if(mmio_we[0] && mem_addr[0+:16]==16'h0000) halt<=1'b1;
-  // write to_host
-  if(mmio_we[0] && mem_addr[0+:16]==16'h0100) begin
-    tx_wdata  <= mem_wdata[0+:8];
-    tx_we     <= 1'b1;
-  end else begin
-    tx_we     <= 1'b0;
+  // write
+  if(rst) begin
+    {halt, led, seg7} <= 0;
+  end else if(mmio_we[0]) begin
+    case (mem_addr[0+:16])
+      `MMIO_HALT      : halt      <= 1'b1;
+      `MMIO_TO_HOST   : tx_wdata  <= mem_wdata[0+:8];
+      `MMIO_LED       : led       <= mem_wdata[0+:16];
+      `MMIO_SEG7      : seg7      <= mem_wdata;
+    endcase
   end
+  tx_we <= mmio_we[0] && mem_addr[0+:16]==`MMIO_TO_HOST;  // assert for only 1 cycle
+
   // read
   if(mmio_oe && !mmio_we[0]) begin
+    mmio_valid  <= 1'b1;
     case (mem_addr[0+:16])
       // return non zero when TX is available
-      16'h0100: begin mmio_valid <= 1'b1; mmio_rdata <= {31'h0, tx_ready}; end
-      default : begin mmio_valid <= 1'b1; mmio_rdata <= 32'h0; end
+      `MMIO_TO_HOST   : mmio_rdata <= {31'h0, tx_ready};
+      `MMIO_BTN       : mmio_rdata <= {27'h0, btn};
+      `MMIO_SW        : mmio_rdata <= {16'h0, sw};
+      `MMIO_LFSR      : mmio_rdata <= {rnd};
+      default         : mmio_rdata <= {32'h0};
     endcase
   end else begin
     mmio_valid  <= 1'b0;
   end
 end
+LFSR lfsr(clk, rnd);
 
 // data memory
 wire[ 4-1:0]  dmem_oe = mem_addr<32'h08000000 ? mem_oe : 4'h0;
@@ -305,15 +317,15 @@ assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 reg [31:0] disp;
 always @(posedge clk) disp<=
   init_we       ? init_waddr      :
+  (btn[LEFT])   ? cycle[32+:32]   :
+  (btn[RIGHT])  ? cycle[ 0+:32]   :
   (btn[CENTER]) ? pc              :
   (btn[UP])     ? mem_addr        :
-  (btn[DOWN])   ? cycle[32+:32]   :
-                  cycle[ 0+:32];
+                  seg7;
 M_7SEGCON m_7seg(clk, disp, cs, an);
 
 reg           ledmask=1'b0;
 always @(posedge clk) ledmask <= clkcnt[17+:2]==2'h0;
-always @(posedge clk) led <= ledmask ? init_waddr[3+:16] : 16'h0000;
 
 reg           rgbledmask=1'b0;
 always @(posedge clk) rgbledmask <= clkcnt[13+:6]==6'h00;
