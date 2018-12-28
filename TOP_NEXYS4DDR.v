@@ -94,10 +94,11 @@ wire[32-1:0]  cycle, pc;
 wire          init_done;
 
 reg halt=1'b0, rst_proc=1'b0;
-always @(posedge clk) rst_proc <= rst || !init_done || halt;
+always @(posedge clk) rst_proc <= rst || !init_done;
 PROCESSOR p (
   .clk(clk),
   .rst(rst_proc),
+  .halt(halt),
 
   .imem_addr(imem_addr),
   .imem_oe(imem_oe),

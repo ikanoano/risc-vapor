@@ -6,6 +6,7 @@
 module PROCESSOR (
   input   wire          clk,
   input   wire          rst,
+  input   wire          halt,
   // I/F for memory
   output  wire[16-1:0]  imem_addr,
   output  wire          imem_oe,
@@ -250,7 +251,7 @@ assign  rrd     =
   sel_crslt ? crslt :
               arslt;
 
-assign  stall_req[WB] = mem_miss;
+assign  stall_req[WB] = mem_miss | halt;
 
 
 
