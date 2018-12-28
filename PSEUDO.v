@@ -8,7 +8,12 @@ module IBUF (
   assign  O = I;
 endmodule
 
-module GENCLK_CPU (
+module GENCLK_CPU #(
+  // parameters just for supressing warnings
+  parameter integer DIVIDE_COUNTER  = 1,
+  parameter real    MULT_COUNTER    = 10,
+  parameter real    DEVIDER_VALUE1  = 10
+) (
   input   wire      clk_in,
   input   wire      reset,
   output  wire      clk_out,
