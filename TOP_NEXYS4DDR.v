@@ -264,7 +264,7 @@ DCACHE #(
   .load_wdata(dram_rdata),
   .load_we({4{dram_valid}} & last_dram_we),
 
-  .clear(init_we)
+  .clear(~init_done)
 );
 
 // dram: read/write after 1 cycle from dmem_oe/dmem_we assertion
@@ -316,7 +316,7 @@ assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 // LEDs
 reg [31:0] disp;
 always @(posedge clk) disp<=
-  init_we       ? init_waddr      :
+  ~init_done    ? init_waddr      :
   (btn[LEFT])   ? cycle[32+:32]   :
   (btn[RIGHT])  ? cycle[ 0+:32]   :
   (btn[CENTER]) ? pc              :
