@@ -211,6 +211,7 @@ always @(posedge clk) begin
       `MMIO_BTN       : mmio_rdata <= {27'h0, btn};
       `MMIO_SW        : mmio_rdata <= {16'h0, sw};
       `MMIO_LFSR      : mmio_rdata <= {rnd};
+      `MMIO_CPU_FREQ  : mmio_rdata <= {CPU_FREQ};
       default         : mmio_rdata <= {32'h0};
     endcase
   end else begin

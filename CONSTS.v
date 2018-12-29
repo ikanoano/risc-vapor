@@ -7,5 +7,6 @@
 `define MMIO_BTN            16'h0500
 `define MMIO_SW             16'h0600
 `define MMIO_LFSR           16'h0700
+`define MMIO_CPU_FREQ       16'h0800
 
 `define BOOT                32'h00000000
