@@ -15,7 +15,7 @@ LD				:= $(PREF)-gcc #ld cannot find udivdi (in libgcc) on my enviroment
 OD				:= $(PREF)-objdump
 OC				:= $(PREF)-objcopy
 
-CMNFLAGS	?= -Wall -O2 -std=c11 -march=rv32i -mabi=ilp32 -mcmodel=medlow -ffast-math -fno-common -fno-builtin-printf -nostartfiles -lm -lgcc -fno-pic -static
+CMNFLAGS	?= -Wall -O2 -std=c11 -march=rv32i -mabi=ilp32 -mcmodel=medlow -mstrict-align -ffast-math -fno-common -fno-builtin-printf -nostartfiles -lm -lgcc -fno-pic -static
 ASFLAGS		?= -g
 CCFLAGS		?= -g -ffunction-sections -fdata-sections
 LDFLAGS		?= -T $(LNKSCR) -Wl,--gc-sections
@@ -27,8 +27,6 @@ all: image
 $(TARGET): $(OBJS) $(LNKSCR)
 	$(LD) $(CMNFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
-syscalls.o: syscalls.c
-	$(CC) $(CMNFLAGS) $(CCFLAGS) -fno-tree-loop-distribute-patterns -c $< -o $@
 %.o: %.c
 	$(CC) $(CMNFLAGS) $(CCFLAGS) -c $< -o $@
 
