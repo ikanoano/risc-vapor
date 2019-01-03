@@ -1,36 +1,39 @@
-PREF		?= /usr/bin/riscv64-linux-gnu
+PREF			?= /usr/bin/riscv64-linux-gnu
 
-TARGET	:= main
-SRCS		:=\
+TARGET		:= main
+SRCS			:=\
 	startup.s\
-	init_bss.c\
+	syscalls.c\
 	main.c\
 	lib.c
-OBJS		:= $(addsuffix .o,$(basename $(SRCS))) bigdata.o
-LNKSCR	:= rvapor.ld
+OBJS			:= $(addsuffix .o,$(basename $(SRCS))) bigdata.o
+LNKSCR		:= rvapor.ld
 
-CC			:= $(PREF)-gcc
-AS			:= $(PREF)-as
-LD			:= $(PREF)-ld
-OD			:= $(PREF)-objdump
-OC			:= $(PREF)-objcopy
+CC				:= $(PREF)-gcc
+AS				:= $(PREF)-as
+LD				:= $(PREF)-gcc #ld cannot find udivdi (in libgcc) on my enviroment
+OD				:= $(PREF)-objdump
+OC				:= $(PREF)-objcopy
 
-ASFLAGS	?= -Wall -O2 -std=c11 -march=rv32i -mabi=ilp32 -nostdlib -fno-pic -static -g
-CCFLAGS	?= -Wall -O2 -std=c11 -march=rv32i -mabi=ilp32 -nostdlib -fno-pic -static -g
-LDFLAGS	?= -T $(LNKSCR) --format elf32-littleriscv -static
-ODFLAGS	?= -mriscv:rv32
-OCFLAGS	?=
+CMNFLAGS	?= -Wall -O2 -std=c11 -march=rv32i -mabi=ilp32 -mcmodel=medlow -ffast-math -fno-common -fno-builtin-printf -nostartfiles -lm -lgcc -fno-pic -static
+ASFLAGS		?= -g
+CCFLAGS		?= -g -ffunction-sections -fdata-sections
+LDFLAGS		?= -T $(LNKSCR) -Wl,--gc-sections
+ODFLAGS		?= -mriscv:rv32
+OCFLAGS		?=
 
 all: image
 
 $(TARGET): $(OBJS) $(LNKSCR)
-	$(LD) $(LDFLAGS) $(OBJS) -o $@
+	$(LD) $(CMNFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
+syscalls.o: syscalls.c
+	$(CC) $(CMNFLAGS) $(CCFLAGS) -fno-tree-loop-distribute-patterns -c $< -o $@
 %.o: %.c
-	$(CC) $(CCFLAGS) -c $< -o $@
+	$(CC) $(CMNFLAGS) $(CCFLAGS) -c $< -o $@
 
 %.o: %.s
-	$(CC) $(ASFLAGS) -c $< -o $@
+	$(CC) $(CMNFLAGS) $(ASFLAGS) -c $< -o $@
 
 datagen: datagen.c
 	gcc -Wall datagen.c -o datagen

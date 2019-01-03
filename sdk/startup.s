@@ -36,7 +36,7 @@ _start:
     li    x30,  0
     li    x31,  0
     li    sp,   0x07fffff0  # 128MB = 0x08000000
-    j     init_bss          # jump to the main
+    j     _init             # jump to the startup c routine
     nop
     lui   a5,   0xf0000     # halt
     sw    zero, 0(a5)

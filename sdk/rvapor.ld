@@ -15,22 +15,22 @@ SECTIONS {
   .text            : { *(.text .stub .text.* .gnu.linkonce.t.*)
                        KEEP (*(.text)) } > PROG
   .fini            : { KEEP (*(.fini)) } > PROG
-  .ctors           : { start_ctors = .;
+  .ctors           : { __ctors_start = .;
                        KEEP (*(SORT(.ctors.*)))
                        KEEP (*(.ctors))
-	                     end_ctors = .; } > PROG
-  .dtors           : { start_dtors = .;
+	                     __ctors_end = .; } > PROG
+  .dtors           : { __dtors_start = .;
                        KEEP (*(SORT(.dtors.*)))
                        KEEP (*(.dtors))
-                       end_dtors = .; } > PROG
+                       __dtors_end = .; } > PROG
   .rodata          : { *(.rodata .rodata.* .gnu.linkonce.r.*) } > INIT
   .data            : { *(.data .data.* .gnu.linkonce.d.*)
                        SORT(CONSTRUCTORS) } > INIT
   .bss             : { . = ALIGN(4);
-                       _bss_start = .;
+                       __bss_start = .;
                        *(.dynbss)
                        *(.bss .bss.* .gnu.linkonce.b.*)
                        *(COMMON)
                        . = ALIGN(4);
-                       _bss_end = .; } > INIT
+                       __bss_end = .; } > INIT
 }
