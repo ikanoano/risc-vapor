@@ -3,6 +3,7 @@
 /**********************************************************************/
 extern  int _binary_bigdata_start;
 extern  int _binary_bigdata_size;
+#define MIN(a,b) (a<b ? a : b)
 
 void bubble_sort(int *array, int len) {
   if(len==1) return;
@@ -29,7 +30,7 @@ void dump_array(int *array, int len) {
 
 int main() {
     int *bigdata = &_binary_bigdata_start;
-    const int len = bigdata[64*1024-1];
+    const int len = MIN(bigdata[64*1024-1], 8*1024);
     const int binary_bigdata_size = ((int)(&_binary_bigdata_size))/4;
 
     printf("bubble_sort\n");
