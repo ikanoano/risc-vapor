@@ -17,7 +17,7 @@ void bubble_sort(int *array, int len) {
   array[max_idx]  = array[len-1];
   array[len-1]    = max_val;
   // sort the rest
-  if((len&0xff)==0) printf("%010x\n", len);
+  printf("%010x\n", len);
   bubble_sort(array, len-1);
 }
 
