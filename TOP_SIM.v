@@ -159,8 +159,8 @@ always @(posedge clk) begin
     case (n4.mem_addr)
       32'hf0000000: begin $display("Halt: a0 was %x", n4.p.gpr.r[10]); $finish(); end
       32'hf0000100: begin
-        if(TRACE) $display("output: %s", n4.mem_wdata[0+:8]);
-        else      $write("%s", n4.mem_wdata[0+:8]);
+        if(TRACE) begin $display("output: %s", n4.mem_wdata[0+:8]); $fflush(); end
+        else      begin $write("%s", n4.mem_wdata[0+:8]); $fflush(); end
       end
       default : begin end
     endcase

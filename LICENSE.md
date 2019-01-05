@@ -50,7 +50,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## ./dhrystone/ and sdk/syscalls.c
+## ./dhrystone/ and sdk/syscalls.*
 Source/Original: [riscv/riscv-tests](https://github.com/riscv/riscv-tests/tree/master/benchmarks/dhrystone)
 
 Copyright (c) 2012-2015, The Regents of the University of California (Regents).

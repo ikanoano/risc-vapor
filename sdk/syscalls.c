@@ -6,11 +6,15 @@
 
 #undef strcmp
 
-#define static_assert(cond) switch(0) { case 0: case !!(long)(cond): ; }
-
 volatile uint32_t * const cpu_halt        = (volatile uint32_t *)0xf0000000;
 volatile uint32_t * const cpu_tohost      = (volatile uint32_t *)0xf0000100;
 volatile uint32_t * const cpu_fromhost    = (volatile uint32_t *)0xf0000200;
+volatile uint32_t * const cpu_led         = (volatile uint32_t *)0xf0000300;
+volatile uint32_t * const cpu_seg7        = (volatile uint32_t *)0xf0000400;
+volatile uint32_t * const cpu_btn         = (volatile uint32_t *)0xf0000500;
+volatile uint32_t * const cpu_sw          = (volatile uint32_t *)0xf0000600;
+volatile uint32_t * const cpu_lfsr        = (volatile uint32_t *)0xf0000700;
+volatile uint32_t * const cpu_freq        = (volatile uint32_t *)0xf0000800;
 
 void write_tohost(const char* s, size_t len)
 {
@@ -25,7 +29,7 @@ void printstr(const char* s)
   write_tohost(s, strlen(s));
 }
 
-int __attribute__((weak)) main(int argc, char** argv)
+int __attribute__((weak)) main()
 {
   // single-threaded programs override this function.
   printstr("Implement main(), foo!\n");
@@ -44,7 +48,7 @@ int _init()
   init_bss();
 
   // only single-threaded programs should ever get here.
-  int ret = main(0, 0);
+  int ret = main();
 
   return ret;
 }
@@ -309,3 +313,15 @@ size_t strnlen(const char *s, size_t n)
   return p - s;
 }
 
+uint64_t read_cycle()
+{
+  uint32_t mcycleh, mcyclehv, mcycle;
+  do {
+    mcycleh  = read_csr(mcycleh);
+    mcycle   = read_csr(mcycle);
+    mcyclehv = read_csr(mcycleh);
+  } while (mcycleh != mcyclehv);
+  uint64_t rslt = mcycleh;
+  rslt = (rslt << 32) | mcycle;
+  return rslt;
+}
