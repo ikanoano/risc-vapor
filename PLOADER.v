@@ -9,27 +9,27 @@ module PLOADER #(
 ) (
   input   wire        CLK, RST_X, RXD,
   output  reg [31:0]  ADDR,
-  output  reg [31:0]  DATA,
+  output  reg [31:0]  INITDATA,
   output  reg         WE,
-  output  reg         DONE  // program load is done
+  output  reg         DONE, // program load is done
+  output  wire[ 7:0]  DATA,
+  output  wire        VALID
 );
 
     reg [31:0] waddr; // memory write address
 
-    wire SER_EN;
-    wire [7:0] SER_DATA;
     UARTRX #(.SERIAL_WCNT(SERIAL_WCNT)) serc (
-      CLK, RST_X, RXD, SER_DATA, SER_EN
+      CLK, RST_X, RXD, DATA, VALID
     );
 
     always @(posedge CLK) begin
         if(!RST_X) begin
-            {ADDR, DATA, WE, waddr, DONE} <= 0;
+            {ADDR, INITDATA, WE, waddr, DONE} <= 0;
         end else begin
-            if(DONE==0 && SER_EN) begin
+            if(DONE==0 && VALID) begin
                 ADDR  <= waddr & ~32'h3;
                 //ADDR  <= (waddr<32'h40000) ? waddr : {8'h04, 6'd0, waddr[17:0]};
-                DATA  <= {SER_DATA, DATA[31:8]};
+                INITDATA  <= {DATA, INITDATA[31:8]};
                 WE    <= (waddr[1:0]==3);
                 waddr <= waddr + 1;
             end else begin

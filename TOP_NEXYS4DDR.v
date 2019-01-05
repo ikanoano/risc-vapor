@@ -130,7 +130,9 @@ always @(posedge clk) prev_mem_we    <= mem_we;
 
 // program loader
 wire[32-1:0]  init_waddr, init_wdata;
-wire          init_we;
+wire[ 8-1:0]  rx_rdata;
+reg [ 8-1:0]  rx_rdata_hold;
+wire          init_we, rx_valid;
 PLOADER #(
   .SERIAL_WCNT(CPU_FREQ/BAUDRATE)
 ) pl (
@@ -138,10 +140,13 @@ PLOADER #(
   .RST_X(~rst),
   .RXD(uart_rxd),
   .ADDR(init_waddr),
-  .DATA(init_wdata),
+  .INITDATA(init_wdata),
   .WE(init_we),
-  .DONE(init_done)
+  .DONE(init_done),
+  .DATA(rx_rdata),
+  .VALID(rx_valid)
 );
+always @(posedge clk) if(rx_valid) rx_rdata_hold <= rx_rdata;
 
 // uart tx
 reg [ 8-1:0]  tx_wdata;
@@ -188,17 +193,21 @@ reg           mmio_valid = 1'b0;
 
 reg [32-1:0]  seg7;
 wire[32-1:0]  rnd;
+reg           unread=1'b0;
 always @(posedge clk) begin
   // write
   if(rst) begin
-    {halt, led, seg7} <= 0;
+    {unread, halt, led, seg7} <= 0;
   end else if(mmio_we[0]) begin
     case (mem_addr[0+:16])
       `MMIO_HALT      : halt      <= 1'b1;
       `MMIO_TO_HOST   : tx_wdata  <= mem_wdata[0+:8];
+      `MMIO_FROM_HOST : unread    <= 1'b0;  // "I've read the rx_rdata."
       `MMIO_LED       : led       <= mem_wdata[0+:16];
       `MMIO_SEG7      : seg7      <= mem_wdata;
     endcase
+  end else begin
+    unread      <= unread | rx_valid;
   end
   tx_we <= mmio_we[0] && mem_addr[0+:16]==`MMIO_TO_HOST;  // assert for only 1 cycle
 
@@ -208,6 +217,7 @@ always @(posedge clk) begin
     case (mem_addr[0+:16])
       // return non zero when TX is available
       `MMIO_TO_HOST   : mmio_rdata <= {31'h0, tx_ready};
+      `MMIO_FROM_HOST : mmio_rdata <= {~unread, 23'h0, rx_rdata_hold};
       `MMIO_BTN       : mmio_rdata <= {27'h0, btn};
       `MMIO_SW        : mmio_rdata <= {16'h0, sw};
       `MMIO_LFSR      : mmio_rdata <= {rnd};
