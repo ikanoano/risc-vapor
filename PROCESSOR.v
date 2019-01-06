@@ -22,8 +22,11 @@ module PROCESSOR (
   input   wire          mem_valid,
   input   wire          mem_ready,
 
+  // stat
   output  wire[64-1:0]  cycle,
-  output  wire[32-1:0]  pc_disp
+  output  wire[32-1:0]  pc_disp,
+  output  wire[32-1:0]  bp_cnt_hit,
+  output  wire[32-1:0]  bp_cnt_pred
 );
 localparam  IF = 0, ID = 1, EM = 2, WB = 3;
 
@@ -289,7 +292,10 @@ BIMODAL_PREDICTOR #(.SCALE(BTB_PC_WIDTH)) bp (
   .fb_pc(pc[EM]),
   .fb_taken(btaken),
   .fb_we(CTRLXFER(ir[EM])),
-  .fb_data(bpdata[EM])
+  .fb_data(bpdata[EM]),
+  // stat
+  .cnt_hit(bp_cnt_hit),
+  .cnt_pred(bp_cnt_pred)
 );
 always @(*) begin
   bptaken[ID] =

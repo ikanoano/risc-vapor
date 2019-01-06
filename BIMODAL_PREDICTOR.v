@@ -16,7 +16,10 @@ module BIMODAL_PREDICTOR #(
   input   wire[32-1:0]  fb_pc,
   input   wire          fb_taken,
   input   wire          fb_we,
-  input   wire[ 2-1:0]  fb_data   // feedback bp_data
+  input   wire[ 2-1:0]  fb_data,  // feedback bp_data
+  // stat
+  output  reg [32-1:0]  cnt_hit,
+  output  reg [32-1:0]  cnt_pred
 );
   localparam  WIDTH_TAG = 30-SCALE;
   (* ram_style = "block" *)
@@ -43,6 +46,13 @@ module BIMODAL_PREDICTOR #(
   always @(posedge clk) if(fb_we) begin
     bicounter[fb_pc[2+:SCALE]]  <= {fb_pc[2+SCALE+:WIDTH_TAG], bcincdec};
   end
+
+  // stat
+  always @(posedge clk) if(fb_we) begin
+    cnt_hit   <= rst ? 32'b0 : cnt_hit  + (fb_taken == fb_data[1] ? 32'b1 : 32'b0);
+    cnt_pred  <= rst ? 32'b0 : cnt_pred + 32'b1;  // NOTE: not accurate
+  end
+
   always @(posedge clk) if(fb_we && ^bcincdec===1'bx) begin
     $display("Error: bcincdec has x: %b %b %b", bcincdec, fb_taken, fb_data);
     $finish();
@@ -50,7 +60,8 @@ module BIMODAL_PREDICTOR #(
 
   integer i;
   initial begin
-    for(i=0; i<2**SCALE; i=i+1) bicounter[i] = 2'b00;
+    for(i=0; i<2**SCALE; i=i+1) bicounter[i] = {2+WIDTH_TAG{1'b0}};
+    {cnt_hit, cnt_pred} = 0;
   end
 
 endmodule

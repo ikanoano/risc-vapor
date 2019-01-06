@@ -95,7 +95,9 @@ wire[32-1:0]  pc;
 wire[64-1:0]  cycle;
 wire          init_done;
 
-reg halt=1'b0, rst_proc=1'b0;
+reg           halt=1'b0, rst_proc=1'b0;
+wire[32-1:0]  bp_cnt_hit, bp_cnt_pred;
+wire[32-1:0]  dc_cnt_hit, dc_cnt_access;
 always @(posedge clk) rst_proc <= rst || !init_done;
 PROCESSOR p (
   .clk(clk),
@@ -116,7 +118,9 @@ PROCESSOR p (
   .mem_ready(mem_ready),
 
   .cycle(cycle),
-  .pc_disp(pc)
+  .pc_disp(pc),
+  .bp_cnt_hit(bp_cnt_hit),
+  .bp_cnt_pred(bp_cnt_pred)
 );
 
 reg [32-1:0]  prev_mem_addr;
@@ -222,6 +226,10 @@ always @(posedge clk) begin
       `MMIO_SW        : mmio_rdata <= {16'h0, sw};
       `MMIO_LFSR      : mmio_rdata <= {rnd};
       `MMIO_CPU_FREQ  : mmio_rdata <= {CPU_FREQ};
+      `MMIO_BP_HIT    : mmio_rdata <= {bp_cnt_hit};
+      `MMIO_BP_PRED   : mmio_rdata <= {bp_cnt_pred};
+      `MMIO_DC_HIT    : mmio_rdata <= {dc_cnt_hit};
+      `MMIO_DC_ACCESS : mmio_rdata <= {dc_cnt_access};
       default         : mmio_rdata <= {32'h0};
     endcase
   end else begin
@@ -275,7 +283,9 @@ DCACHE #(
   .load_wdata(dram_rdata),
   .load_we({4{dram_valid}} & last_dram_we),
 
-  .clear(~init_done)
+  .clear(~init_done),
+  .dc_cnt_hit(dc_cnt_hit),
+  .dc_cnt_access(dc_cnt_access)
 );
 
 // dram: read/write after 1 cycle from dmem_oe/dmem_we assertion

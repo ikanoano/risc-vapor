@@ -21,7 +21,10 @@ module DCACHE #(
   input   wire[       32-1:0] load_wdata,
   input   wire[        4-1:0] load_we,
   // clear
-  input   wire                clear
+  input   wire                clear,
+  // stat
+  output  reg [32-1:0]        dc_cnt_hit,
+  output  reg [32-1:0]        dc_cnt_access
 );
   localparam WIDTH_TAG = MEM_SCALE-SCALE;
 
@@ -69,10 +72,11 @@ module DCACHE #(
   assign hit = prev_oe[0] && rtag==htag && (hvalid&rvalid)==hvalid;
 
   always @(posedge clk) begin
-    //if(load_oe && oe[0]) begin
-    //  $display("Conflict oe: %b %b", load_oe, oe);
-    //  $finish();
-    //end
+    dc_cnt_hit    <= rst ? 32'b0 : dc_cnt_hit    + hit;
+    dc_cnt_access <= rst ? 32'b0 : dc_cnt_access + (oe[0] && !we[0]);
+  end
+
+  always @(posedge clk) begin
     if(load_we[0] && we[0]) begin
       $display("Conflict we: %b %b", load_we, we);
       $finish();

@@ -154,10 +154,21 @@ TOP_NEXYS4DDR n4 (
 // peep the memory mapped IO
 wire          mmio_oe = n4.mmio_oe;
 wire[ 4-1:0]  mmio_we = n4.mmio_we;
+real          stat_tmp;
 always @(posedge clk) begin
   if(mmio_oe && mmio_we[0]) begin  // write
     case (n4.mem_addr)
-      32'hf0000000: begin $display("Halt: a0 was %x", n4.p.gpr.r[10]); $finish(); end
+      32'hf0000000: begin
+        $display("Halt!");
+        $display("a0 was %x", n4.p.gpr.r[10]);
+        stat_tmp = $bitstoreal(n4.bp_cnt_hit)/$bitstoreal(n4.bp_cnt_pred);
+        $display("branch predictor hit/pred   = %10d/%10d = %7.3f",
+          n4.bp_cnt_hit, n4.bp_cnt_pred, stat_tmp);
+        stat_tmp = $bitstoreal(n4.dc_cnt_hit)/$bitstoreal(n4.dc_cnt_access);
+        $display("daca cache       hit/access = %10d/%10d = %7.3f",
+          n4.dc_cnt_hit, n4.dc_cnt_access, stat_tmp);
+        $finish();
+      end
       32'hf0000100: begin
         if(TRACE) begin $display("output: %s", n4.mem_wdata[0+:8]); $fflush(); end
         else      begin $write("%s", n4.mem_wdata[0+:8]); $fflush(); end
