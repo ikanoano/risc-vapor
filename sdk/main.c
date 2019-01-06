@@ -18,14 +18,14 @@ void bubble_sort(int *array, int len) {
   array[max_idx]  = array[len-1];
   array[len-1]    = max_val;
   // sort the rest
-  printf("%010x ", len);
+  printf("%06x ", len);
   bubble_sort(array, len-1);
 }
 
 void dump_array(int *array, int len) {
   const int num_to_display = 32;
   for(int i=0; i<len; i+=len/num_to_display)
-    printf("%010x\n", array[i]);
+    printf("%08x\n", array[i]);
   printf("\n");
 }
 
@@ -48,13 +48,17 @@ int main() {
 
     uint64_t start = read_cycle();
     bubble_sort(dataset, len);
-    printf("\n");
     uint64_t end = read_cycle();
+    printf("\n");
 
     printf("after\n");
     dump_array(dataset, len);
 
-    printf("elapsed cycle:%10lu\n", end-start);
+    // %d and %ld are for 32-bit. %lld is for 64-bit.
+    // https://riscv.org/wp-content/uploads/2015/01/riscv-calling.pdf
+    printf("        start at %10llu \n", start);
+    printf("          end at %10llu \n", end);
+    printf("elapsed cycle is %10llu \n", end-start);
 
     return 0;
 }
