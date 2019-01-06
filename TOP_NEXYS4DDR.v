@@ -337,12 +337,9 @@ assign  mem_ready = ~dram_busy && ~dcache_busy && ~mem_oe[0];
 // LEDs
 reg [31:0] disp;
 always @(posedge clk) disp<=
-  ~init_done    ? init_waddr      :
-  (btn[LEFT])   ? cycle[32+:32]   :
-  (btn[RIGHT])  ? cycle[ 0+:32]   :
-  (btn[CENTER]) ? pc              :
-  (btn[UP])     ? mem_addr        :
-                  seg7;
+  ~init_done              ? init_waddr      :
+  (btn[LEFT]&&btn[RIGHT]) ? pc              :
+                            seg7;
 M_7SEGCON m_7seg(clk, disp, cs, an);
 
 reg           ledmask=1'b0;
