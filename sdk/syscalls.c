@@ -6,15 +6,20 @@
 
 #undef strcmp
 
-volatile uint32_t * const cpu_halt        = (volatile uint32_t *)0xf0000000;
-volatile uint32_t * const cpu_tohost      = (volatile uint32_t *)0xf0000100;
-volatile uint32_t * const cpu_fromhost    = (volatile uint32_t *)0xf0000200;
-volatile uint32_t * const cpu_led         = (volatile uint32_t *)0xf0000300;
-volatile uint32_t * const cpu_seg7        = (volatile uint32_t *)0xf0000400;
-volatile uint32_t * const cpu_btn         = (volatile uint32_t *)0xf0000500;
-volatile uint32_t * const cpu_sw          = (volatile uint32_t *)0xf0000600;
-volatile uint32_t * const cpu_lfsr        = (volatile uint32_t *)0xf0000700;
-volatile uint32_t * const cpu_freq        = (volatile uint32_t *)0xf0000800;
+volatile       uint32_t * const cpu_halt        = (volatile       uint32_t * const)0xf0000000;
+volatile       uint32_t * const cpu_tohost      = (volatile       uint32_t * const)0xf0000100;
+volatile       uint32_t * const cpu_fromhost    = (volatile       uint32_t * const)0xf0000200;
+volatile       uint32_t * const cpu_led         = (volatile       uint32_t * const)0xf0000300;
+volatile       uint32_t * const cpu_seg7        = (volatile       uint32_t * const)0xf0000400;
+volatile const uint32_t * const cpu_btn         = (volatile const uint32_t * const)0xf0000500;
+volatile const uint32_t * const cpu_sw          = (volatile const uint32_t * const)0xf0000600;
+volatile const uint32_t * const cpu_lfsr        = (volatile const uint32_t * const)0xf0000700;
+
+volatile const uint32_t * const cpu_freq        = (volatile const uint32_t * const)0xf0002000;
+volatile const uint32_t * const cpu_bp_hit      = (volatile const uint32_t * const)0xf0002100;
+volatile const uint32_t * const cpu_bp_pred     = (volatile const uint32_t * const)0xf0002200;
+volatile const uint32_t * const cpu_dc_hit      = (volatile const uint32_t * const)0xf0002300;
+volatile const uint32_t * const cpu_dc_access   = (volatile const uint32_t * const)0xf0002400;
 
 void write_tohost(const char* s, size_t len)
 {

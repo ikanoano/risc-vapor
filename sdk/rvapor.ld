@@ -23,13 +23,13 @@ SECTIONS {
                        KEEP (*(SORT(.dtors.*)))
                        KEEP (*(.dtors))
                        __dtors_end = .; } > PROG
-  .rodata          : { *(.rodata .rodata.* .gnu.linkonce.r.*) } > INIT
-  .data            : { *(.data .data.* .gnu.linkonce.d.*)
+  .rodata          : { *(.rodata* .gnu.linkonce.r.*) } > INIT
+  .data            : { *(.data* .sdata* .sdata2* .gnu.linkonce.d.*)
                        SORT(CONSTRUCTORS) } > INIT
   .bss             : { . = ALIGN(4);
                        __bss_start = .;
                        *(.dynbss)
-                       *(.bss .bss.* .gnu.linkonce.b.*)
+                       *(.bss* .sbss* .gnu.linkonce.b.*)
                        *(COMMON)
                        . = ALIGN(4);
                        __bss_end = .; } > INIT

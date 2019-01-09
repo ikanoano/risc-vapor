@@ -3,15 +3,20 @@
 
 #define static_assert(cond) switch(0) { case 0: case !!(long)(cond): ; }
 
-extern __volatile__ uint32_t * const cpu_halt;
-extern __volatile__ uint32_t * const cpu_tohost;
-extern __volatile__ uint32_t * const cpu_fromhost;
-extern __volatile__ uint32_t * const cpu_led;
-extern __volatile__ uint32_t * const cpu_seg7;
-extern __volatile__ uint32_t * const cpu_btn;
-extern __volatile__ uint32_t * const cpu_sw;
-extern __volatile__ uint32_t * const cpu_lfsr;
-extern __volatile__ uint32_t * const cpu_freq;
+extern volatile       uint32_t * const cpu_halt;
+extern volatile       uint32_t * const cpu_tohost;
+extern volatile       uint32_t * const cpu_fromhost;
+extern volatile       uint32_t * const cpu_led;
+extern volatile       uint32_t * const cpu_seg7;
+extern volatile const uint32_t * const cpu_btn;
+extern volatile const uint32_t * const cpu_sw;
+extern volatile const uint32_t * const cpu_lfsr;
+
+extern volatile const uint32_t * const cpu_freq;
+extern volatile const uint32_t * const cpu_bp_hit;
+extern volatile const uint32_t * const cpu_bp_pred;
+extern volatile const uint32_t * const cpu_dc_hit;
+extern volatile const uint32_t * const cpu_dc_access;
 
 void write_tohost(const char* s, size_t len);
 int putchar(int ch);
