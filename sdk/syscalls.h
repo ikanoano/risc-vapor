@@ -25,6 +25,9 @@ int printf(const char* fmt, ...);
 int sprintf(char* str, const char* fmt, ...);
 size_t strnlen(const char *s, size_t n);
 uint64_t read_cycle();
+void halt();
+void print_stat();
+uint32_t get_time_ms();
 
 #define read_csr(reg) ({ unsigned long __tmp; \
   __asm__ __volatile__ ("csrr %0, " #reg : "=r"(__tmp)); \

@@ -56,9 +56,16 @@ int main() {
 
     // %d and %ld are for 32-bit. %lld is for 64-bit.
     // https://riscv.org/wp-content/uploads/2015/01/riscv-calling.pdf
-    printf("        start at %10llu \n", start);
-    printf("          end at %10llu \n", end);
-    printf("elapsed cycle is %10llu \n", end-start);
+    printf("        start at %10llu\n", start);
+    printf("          end at %10llu\n", end);
+    printf("elapsed cycle is %10llu\n", end-start);
+    uint32_t etime = 1000*(end-start) / *cpu_freq;
+    printf("elapsed time  is %10u (ms)\n", etime);
+
+    print_stat();
+    uint32_t ttime = get_time_ms();
+    printf("total elapsed time  is %10u (ms)\n", ttime);
+
 
     return 0;
 }

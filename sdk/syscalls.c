@@ -318,8 +318,7 @@ size_t strnlen(const char *s, size_t n)
   return p - s;
 }
 
-uint64_t read_cycle()
-{
+uint64_t read_cycle() {
   uint32_t mcycleh, mcyclehv, mcycle;
   do {
     mcycleh  = read_csr(mcycleh);
@@ -329,4 +328,34 @@ uint64_t read_cycle()
   uint64_t rslt = mcycleh;
   rslt = (rslt << 32) | mcycle;
   return rslt;
+}
+
+void halt() {
+  putchar('\n');  // flush buffer
+  *cpu_halt = 1;
+}
+
+static void print_percentage(uint64_t hit, uint64_t all) {
+  uint64_t pc_i   = 100*hit/all;
+  uint64_t pc_f   = (100000*hit/all)-(1000*pc_i);
+  printf("%3llu.%03llu%%", pc_i, pc_f);
+}
+
+void print_stat() {
+  uint64_t bp_hit   = *cpu_bp_hit;
+  uint64_t bp_all   = *cpu_bp_pred;
+  uint64_t dc_hit   = *cpu_dc_hit;
+  uint64_t dc_all   = *cpu_dc_access;
+  uint64_t cycle    = read_cycle();
+  printf("cycle                       = %llu\n", cycle);
+  printf("branch predictor hit/pred   = %10llu/%10llu = ", bp_hit, bp_all);
+  print_percentage(bp_hit, bp_all);
+  putchar('\n');
+  printf("daca cache       hit/access = %10llu/%10llu = ", dc_hit, dc_all);
+  print_percentage(dc_hit, dc_all);
+  putchar('\n');
+}
+
+uint32_t get_time_ms() {
+  return 1000 * read_cycle() / *cpu_freq;
 }
