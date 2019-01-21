@@ -18,6 +18,14 @@ extern volatile const uint32_t * const cpu_bp_pred;
 extern volatile const uint32_t * const cpu_dc_hit;
 extern volatile const uint32_t * const cpu_dc_access;
 
+enum  btn_mask {
+  btn_mask_down   = 1<<5,
+  btn_mask_right  = 1<<4,
+  btn_mask_left   = 1<<3,
+  btn_mask_up     = 1<<2,
+  btn_mask_center = 1<<1
+};
+
 void write_tohost(const char* s, size_t len);
 int putchar(int ch);
 void printhex(uint64_t x);

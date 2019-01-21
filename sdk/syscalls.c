@@ -41,19 +41,36 @@ int __attribute__((weak)) main()
   return -1;
 }
 
-static void init_bss()
-{
-  extern char __bss_start, __bss_end;
-  size_t bss_size = &__bss_end - &__bss_start;
-  memset(&__bss_start, 0, bss_size);
-}
 
 int _init()
 {
-  init_bss();
+  extern char __bss_start, __bss_end;
+  extern void (*__preinit_array_start []) ();
+  extern void (*__preinit_array_end   []) ();
+  extern void (*__init_array_start    []) ();
+  extern void (*__init_array_end      []) ();
+  extern void (*__fini_array_start    []) ();
+  extern void (*__fini_array_end      []) ();
 
-  // only single-threaded programs should ever get here.
+  // init bss
+  size_t bss_size = &__bss_end - &__bss_start;
+  memset(&__bss_start, 0, bss_size);
+
+  // call ctors
+  size_t num_preinit = __preinit_array_end - __preinit_array_start;
+  for(int i=0; i<num_preinit; i++)
+    __preinit_array_start[i]();
+
+  size_t num_init = __init_array_start - __init_array_end;
+  for(int i=0; i<num_init; i++)
+    __init_array_start[i]();
+
   int ret = main();
+
+  // call dtors
+  size_t num_fini = __fini_array_end - __fini_array_start;
+  for(int i=num_fini; i>0; i--)
+    __fini_array_start[i-1]();
 
   return ret;
 }

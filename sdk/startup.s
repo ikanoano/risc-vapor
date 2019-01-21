@@ -35,6 +35,10 @@ _start:
     li    x29,  0
     li    x30,  0
     li    x31,  0
+.option push
+.option norelax
+    la    gp,   __global_pointer$
+.option pop
     li    sp,   0x07fffff0  # 128MB = 0x08000000
     jal   _init             # jump to the startup c routine
     nop
