@@ -78,7 +78,7 @@ PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED
 HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE
 MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
-## ./UART.v ./PLOADER.v
+## ./hdl/UART.v ./hdl/PLOADER.v
 Original: [The 1st IPSJ SIG-ARC High-Performance Processor Design Contest](http://www.arch.cs.titech.ac.jp/contest/)
 
 Copyright (c) 2013, Arch Lab. Tokyo Institute of Technology

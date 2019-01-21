@@ -2,7 +2,7 @@
 
 all=0
 pass=0
-for elf in ./testbin/*.elf; do
+for elf in ../testbin/*.elf; do
   all=$((all+1))
   target="/tmp/`basename $elf`.bin"
   trace="`dirname $target`/`basename $elf`.trace"

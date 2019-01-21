@@ -46,10 +46,10 @@ run-trace:	isim
 	./$< $(RUNFLAGS) +TRACE=1
 
 benchmark:	isim
-	$(RISCV_PREFIX)objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
+	$(RISCV_PREFIX)objcopy -Obinary -R .tohost -R .fromhost ../benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
 	$(MAKE) run IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=3000000
 benchmark-trace:	isim
-	$(RISCV_PREFIX)objcopy -Obinary -R .tohost -R .fromhost ./benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
+	$(RISCV_PREFIX)objcopy -Obinary -R .tohost -R .fromhost ../benchmarks/$(BENCHMARK).riscv /tmp/$(BENCHMARK).bin
 	$(MAKE) run-trace IMAGE=/tmp/$(BENCHMARK).bin MAX_CYCLE=3000000
 
 clean:
