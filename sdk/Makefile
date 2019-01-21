@@ -1,6 +1,6 @@
 PREFIX		?= /usr/bin/riscv64-unknown-elf
 
-TARGET		?= main
+TARGET		?= bsort
 ELF_TRG		:= $(TARGET).elf
 IMG_TRG		:= $(TARGET).img
 SRCS			:=\
