@@ -161,10 +161,10 @@ always @(posedge clk) begin
       32'hf0000000: begin
         $display("Halt!");
         $display("a0 was %x", n4.p.gpr.r[10]);
-        stat_tmp = $bitstoreal(n4.bp_cnt_hit)/$bitstoreal(n4.bp_cnt_pred);
+        stat_tmp = $bitstoreal(LONG(n4.bp_cnt_hit))/$bitstoreal(LONG(n4.bp_cnt_pred));
         $display("branch predictor hit/pred   = %10d/%10d = %7.3f",
           n4.bp_cnt_hit, n4.bp_cnt_pred, stat_tmp);
-        stat_tmp = $bitstoreal(n4.dc_cnt_hit)/$bitstoreal(n4.dc_cnt_access);
+        stat_tmp = $bitstoreal(LONG(n4.dc_cnt_hit))/$bitstoreal(LONG(n4.dc_cnt_access));
         $display("daca cache       hit/access = %10d/%10d = %7.3f",
           n4.dc_cnt_hit, n4.dc_cnt_access, stat_tmp);
         $finish();
@@ -184,6 +184,10 @@ always @(posedge clk) begin
     endcase
   end
 end
+
+function[64-1:0]  LONG(input[32-1:0] short);
+  LONG = {32'h0, short};
+endfunction
 
 // assertion
 always @(posedge clk) begin
