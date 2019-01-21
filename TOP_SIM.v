@@ -317,34 +317,35 @@ always @(posedge clk) if(TRACE && !rst) begin : trace
   else
     branchstr = "";
 
-  if(n4.p.pre_mem_we) begin
+  if(n4.p.pre_mem_we[0]) begin
     $sformat(storestr, "dmem[h%x] <- (h%x)", n4.p.pre_mem_addr, n4.p.pre_mem_wdata);
   end else begin
     storestr = "";
   end
 
+  if(n4.p.pre_mem_oe[0] && !n4.p.pre_mem_we[0]) begin
+    $sformat(loadstr, "dmem[h%x]", n4.p.pre_mem_addr);
+  end else begin
+    loadstr = "";
+  end
+
   if(!n4.p.prev_insertb[n4.p.EM]) begin  // skip if instruction in WB is bubble
-    if(n4.p.mem_reading && n4.p.mem_valid) begin
-      $sformat(loadstr, "dmem[h%x]", n4.prev_mem_addr); // FIXME not accurate addr
-    end else begin
-      loadstr = "";
-    end
     if(n4.p.gpr.we)
       $sformat(wbstr, "(h%x) ->%s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
     else
       wbstr = "";
 
     // display trace made with past WM stage info and current WB stage info
-    $display("%0s%0s%0s", str_em, loadstr, wbstr);
+    $display("%0s%0s", str_em, wbstr);
   end else begin
     $display("bubble");
   end
 
   // save strings made with ExMa stage info
-  $sformat(str_em, "h%x: h%x %s %s %s %s %s %s | %0s%0s",
+  $sformat(str_em, "h%x: h%x %s %s %s %s %s %s | %0s%0s%0s",
     pc, ir, opstr, f3str,
     rdstr, rs1str, rs2str, immstr,
-    branchstr, storestr);
+    branchstr, storestr, loadstr);
 end
 
 function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =
