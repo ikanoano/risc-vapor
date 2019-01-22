@@ -132,8 +132,8 @@ module PROCESSOR (
   reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
   reg [ 8-1:0]  bcond=8'hxx;
   always @(posedge clk) if(!stall[EM]) begin
-    isecall <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
-    ismret  <= !bflush && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+    isecall <= !bflush && !insertb[ID] && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
+    ismret  <= !bflush && !insertb[ID] && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
     btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
     btarget_jalr  <= pre_rrs1 +IIMM(ir[ID]);
     btarget_branch<= pc[ID]   +BIMM(ir[ID]);
