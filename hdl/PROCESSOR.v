@@ -28,7 +28,7 @@ module PROCESSOR (
   output  wire[32-1:0]  bp_cnt_hit,
   output  wire[32-1:0]  bp_cnt_pred
 );
-  localparam  IF = 0, ID = 1, EM = 2, WB = 3;
+  `include "LCONSTS.v"
 
   // stall request
   wire[WB:IF]   stall_req;
@@ -321,85 +321,6 @@ module PROCESSOR (
       stall[j]      ? bpdata[j]   :
                       bpdata[j-1];
   end
-
-  // instrunction parser
-  function[ 5-1:0]  OPCODE(input[32-1:0] inst); OPCODE  = inst[ 6: 2]; endfunction
-  function[ 5-1:0]  RD    (input[32-1:0] inst); RD      = inst[11: 7]; endfunction
-  function[ 5-1:0]  RS1   (input[32-1:0] inst); RS1     = inst[19:15]; endfunction
-  function[ 5-1:0]  RS2   (input[32-1:0] inst); RS2     = inst[24:20]; endfunction
-  function[ 3-1:0]  FUNCT3(input[32-1:0] inst); FUNCT3  = inst[14:12]; endfunction
-  function[ 7-1:0]  FUNCT7(input[32-1:0] inst); FUNCT7  = inst[31:25]; endfunction
-
-  function[32-1:0]  IIMM  (input[32-1:0] inst); IIMM    = {{21{inst[31]}},                           inst[30:25],inst[24:21],inst[20]}; endfunction
-  function[32-1:0]  SIMM  (input[32-1:0] inst); SIMM    = {{21{inst[31]}},                           inst[30:25],inst[11: 8],inst[ 7]}; endfunction
-  function[32-1:0]  BIMM  (input[32-1:0] inst); BIMM    = {{20{inst[31]}},                  inst[ 7],inst[30:25],inst[11: 8],    1'b0}; endfunction
-  function[32-1:0]  UIMM  (input[32-1:0] inst); UIMM    = {inst[31],inst[30:20],inst[19:12],                                    12'b0}; endfunction
-  function[32-1:0]  JIMM  (input[32-1:0] inst); JIMM    = {{12{inst[31]}},      inst[19:12],inst[20],inst[30:25],inst[24:21],    1'b0}; endfunction
-  function[32-1:0]  IMM   (input[32-1:0] inst); IMM     =
-    OPCODE(inst)==`STORE  ? SIMM(inst)  :
-    OPCODE(inst)==`BRANCH ? BIMM(inst)  :
-    OPCODE(inst)==`AUIPC  ? UIMM(inst)  :
-    OPCODE(inst)==`LUI    ? UIMM(inst)  :
-    OPCODE(inst)==`JAL    ? JIMM(inst)  :
-                            IIMM(inst);
-  endfunction
-
-  function[   0:0]  GPRWE (input[32-1:0] inst); GPRWE  =  // gpr write enable
-    RD(inst)!=5'd0 && OPCODE(inst)!=`STORE && OPCODE(inst)!=`BRANCH;
-  endfunction
-  function[ 4-1:0]  MEMOE (input[32-1:0] inst); MEMOE  =  // mem output enable
-    OPCODE(inst)!=`LOAD   ? MEMWE(inst) : // not store
-    FUNCT3(inst)==`LB     ? 4'b0001 :
-    FUNCT3(inst)==`LH     ? 4'b0011 :
-    FUNCT3(inst)==`LW     ? 4'b1111 :
-    FUNCT3(inst)==`LBU    ? 4'b0001 :
-    FUNCT3(inst)==`LHU    ? 4'b0011 :
-                            4'bxxxx;
-  endfunction
-  function[ 4-1:0]  MEMWE (input[32-1:0] inst); MEMWE  =  // mem write enable
-    OPCODE(inst)!=`STORE  ? 4'b0000 : // not store
-    FUNCT3(inst)==`SB     ? 4'b0001 :
-    FUNCT3(inst)==`SH     ? 4'b0011 :
-    FUNCT3(inst)==`SW     ? 4'b1111 :
-                            4'bxxxx;
-  endfunction
-
-  function[ 1-1:0]  USERD (input[32-1:0] inst); USERD  =
-    OPCODE(inst)!=`STORE  &&
-    OPCODE(inst)!=`BRANCH &&
-    OPCODE(inst)!=`MISCMEM;
-  endfunction
-  function[ 1-1:0]  USERS1(input[32-1:0] inst); USERS1 =
-    OPCODE(inst)!=`AUIPC  &&
-    OPCODE(inst)!=`LUI    &&
-    OPCODE(inst)!=`JAL    &&
-    OPCODE(inst)!=`MISCMEM;
-    //OPCODE(inst)==`SYSTEM && (...);  TUNE: some functs in SYSTEM don't use RS1
-  endfunction
-  function[ 1-1:0]  USERS2(input[32-1:0] inst); USERS2 =
-    OPCODE(inst)==`STORE  ||
-    OPCODE(inst)==`OP     ||
-    OPCODE(inst)==`BRANCH;
-  endfunction
-  function[ 1-1:0]  USEIMM(input[32-1:0] inst); USEIMM =
-    OPCODE(inst)!=`OP     &&
-    OPCODE(inst)!=`MISCMEM;
-  endfunction
-
-  function[ 1-1:0]  CTRLXFER(input[32-1:0] inst); CTRLXFER =
-    OPCODE(inst)==`JAL    ||
-    OPCODE(inst)==`JALR   ||
-    OPCODE(inst)==`BRANCH;
-  endfunction
-
-  function[32-1:0]  LOADEXT(input[32-1:0] inst, input[32-1:0] ledata);  LOADEXT =
-    FUNCT3(inst)==`LB   ? {{24{ledata[ 7]}}, ledata[0+: 8]} :
-    FUNCT3(inst)==`LH   ? {{16{ledata[15]}}, ledata[0+:16]} :
-    FUNCT3(inst)==`LW   ?                    ledata[0+:32]  :
-    FUNCT3(inst)==`LBU  ? {{24{      1'b0}}, ledata[0+: 8]} :
-    FUNCT3(inst)==`LHU  ? {{16{      1'b0}}, ledata[0+:16]} :
-                          32'hxxxxxxxx;
-  endfunction
 
 endmodule
 

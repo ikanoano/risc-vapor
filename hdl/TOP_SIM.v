@@ -4,6 +4,7 @@
 
 // Top module for simulation
 module TOP_SIM ();
+  `include "LCONSTS.v"
   localparam  ISCALE  = 16-2; // 64KB  (16K word)
   localparam  DSCALE  = 27-2; // 128MB (32M word)
   localparam  IMAGESCALE  = (9+10)-2; // 512KB (128K word)
@@ -204,7 +205,7 @@ module TOP_SIM ();
 
   // trace output
   localparam[8-1:0] SPACE = " ";
-  reg [     3:0] stall;
+  reg [     3:0]  stall;
   reg [  16-1:0]  pc;
   reg [  32-1:0]  ir;
   reg [   5-1:0]  opcode;
@@ -233,89 +234,29 @@ module TOP_SIM ();
     if(TIME) $write("%8d ", $time);
     $write("%8s | ", stallstr);
     if(TRACE && n4.dram.reading) $write("reading dram");
-    if(stall[n4.p.WB]) begin
+    if(stall[WB]) begin
       $display("");
       disable trace;  // early return
     end
 
-    pc      = n4.p.pc[n4.p.EM][0+:16];
-    ir      = n4.p.ir[n4.p.EM];
-    opcode  = n4.p.OPCODE(ir);
-    funct3  = n4.p.FUNCT3(ir);
-    funct7  = n4.p.FUNCT7(ir);
-    imm     = n4.p.IMM(ir);
-    opstr =
-      ir==`NOP          ? "nop"   :
-      ir==`ECALL        ? "ecall" :
-      ir==`MRET         ? "mret"  :
-      opcode==`LOAD     ? "load"  :
-      opcode==`STORE    ? "store" :
-      opcode==`OPIMM    ? "opimm" :
-      opcode==`OP       ? "op"    :
-      opcode==`AUIPC    ? "auipc" :
-      opcode==`LUI      ? "lui"   :
-      opcode==`BRANCH   ? "brnch" :
-      opcode==`JALR     ? "jalr"  :
-      opcode==`JAL      ? "jal"   :
-      opcode==`MISCMEM  ? "miscm" :
-      opcode==`SYSTEM   ? "csr"   :
-                          "unk";
-    f3str =
-      ir==`NOP          ? "-"     :
-      ir==`ECALL        ? "-"     :
-      ir==`MRET         ? "-"     :
-      opcode==`BRANCH   ? (
-        funct3==`BEQ      ? "beq"   :
-        funct3==`BNE      ? "bne"   :
-        funct3==`BLT      ? "blt"   :
-        funct3==`BGE      ? "bge"   :
-        funct3==`BLTU     ? "bltu"  :
-        funct3==`BGEU     ? "bgeu"  :
-                            "unk"):
-      opcode==`LOAD     ? (
-        funct3==`LB       ? "lb"    :
-        funct3==`LH       ? "lh"    :
-        funct3==`LW       ? "lw"    :
-        funct3==`LBU      ? "lbu"   :
-        funct3==`LHU      ? "lhu"   :
-                            "unk"):
-      opcode==`STORE    ? (
-        funct3==`SB       ? "sb"    :
-        funct3==`SH       ? "sh"    :
-        funct3==`SW       ? "sw"    :
-                            "unk"):
-      opcode==`OPIMM || opcode==`OP ? (
-        funct3==`ADD      ? (opcode[3]&&funct7[5] ? "sub" : "add"):
-        funct3==`SLL      ? "sll"   :
-        funct3==`SLT      ? "slt"   :
-        funct3==`SLTU     ? "sltu"  :
-        funct3==`XOR      ? "xor"   :
-        funct3==`SRL      ? (funct7[5]==`SRL7 ? "srl" : "sra"):
-        funct3==`OR       ? "or"    :
-        funct3==`AND      ? "and"   :
-                            "unk"):
-      opcode==`MISCMEM  ? (
-        funct3==`FENCE    ? "fnc"   :
-        funct3==`FENCEI   ? "fnci"  :
-                            "unk"):
-      opcode==`SYSTEM   ? (
-        funct3==`CSRRW    ? "rw"    :
-        funct3==`CSRRS    ? "rs"    :
-        funct3==`CSRRC    ? "rc"    :
-        funct3==`CSRRWI   ? "rwi"   :
-        funct3==`CSRRSI   ? "rsi"   :
-        funct3==`CSRRCI   ? "rci"   :
-                            "unk"):
-                          "-";
+    pc      = n4.p.pc[EM][0+:16];
+    ir      = n4.p.ir[EM];
+    opcode  = OPCODE(ir);
+    funct3  = FUNCT3(ir);
+    funct7  = FUNCT7(ir);
+    imm     = IMM(ir);
 
-    if(ir!=`NOP && n4.p.USERD(ir))  $sformat(rdstr, "%s", REGNAME(n4.p.RD(ir)));
-    else                            rdstr = {3{SPACE}};
-    if(ir!=`NOP && n4.p.USERS1(ir)) $sformat(rs1str, "%s(h%x)", REGNAME(n4.p.RS1(ir)), n4.p.rrs1_fwd);
-    else                            rs1str = {3+3+8{SPACE}};
-    if(ir!=`NOP && n4.p.USERS2(ir)) $sformat(rs2str, "%s(h%x)", REGNAME(n4.p.RS2(ir)), n4.p.rrs2_fwd);
-    else                            rs2str = {3+3+8{SPACE}};
-    if(ir!=`NOP && n4.p.USEIMM(ir)) $sformat(immstr, "imm(h%x)", n4.p.IMM(ir));
-    else                            immstr = {3+3+8{SPACE}};
+    opstr   = OPNAME(ir);
+    f3str   = FUNCTNAME(ir);
+
+    if(ir!=`NOP && USERD(ir))   $sformat(rdstr, "%s", REGNAME(RD(ir)));
+    else                        rdstr = {3{SPACE}};
+    if(ir!=`NOP && USERS1(ir))  $sformat(rs1str, "%s(h%x)", REGNAME(RS1(ir)), n4.p.rrs1_fwd);
+    else                        rs1str = {3+3+8{SPACE}};
+    if(ir!=`NOP && USERS2(ir))  $sformat(rs2str, "%s(h%x)", REGNAME(RS2(ir)), n4.p.rrs2_fwd);
+    else                        rs2str = {3+3+8{SPACE}};
+    if(ir!=`NOP && USEIMM(ir))  $sformat(immstr, "imm(h%x)", IMM(ir));
+    else                        immstr = {3+3+8{SPACE}};
     if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL || n4.p.isecall || n4.p.ismret)
       $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)", n4.p.btarget[0+:16+2], n4.p.btaken, n4.p.bflush);
     else
@@ -333,7 +274,7 @@ module TOP_SIM ();
       loadstr = "";
     end
 
-    if(!n4.p.prev_insertb[n4.p.EM]) begin  // skip if instruction in WB is bubble
+    if(!n4.p.prev_insertb[EM]) begin  // skip if instruction in WB is bubble
       if(n4.p.gpr.we)
         $sformat(wbstr, "(h%x) ->%s", n4.p.gpr.rrd, REGNAME(n4.p.gpr.rd));
       else
@@ -351,43 +292,6 @@ module TOP_SIM ();
       rdstr, rs1str, rs2str, immstr,
       branchstr, storestr, loadstr);
   end
-
-  function[24-1:0] REGNAME (input[5-1:0] r); REGNAME =
-    //                      Saver   | Description
-    r===5'd00 ? "  0" : //          | Hard-wired zero
-    r===5'd01 ? " ra" : //  Caller  | Return address
-    r===5'd02 ? " sp" : //  Callee  | Stack pointer
-    r===5'd03 ? " gp" : //          | Global pointer
-    r===5'd04 ? " tp" : //          | Thread pointer
-    r===5'd05 ? " t0" : //  Caller  | Temporaries
-    r===5'd06 ? " t1" : //  Caller  | "
-    r===5'd07 ? " t2" : //  Caller  | "
-    r===5'd08 ? " s0" : //  Callee  | Saved register / frame pointer
-    r===5'd09 ? " s1" : //  Callee  | Saved register
-    r===5'd10 ? " a0" : //  Caller  | Function arguments / return values
-    r===5'd11 ? " a1" : //  Caller  | "
-    r===5'd12 ? " a2" : //  Caller  | Function arguments
-    r===5'd13 ? " a3" : //  Caller  | "
-    r===5'd14 ? " a4" : //  Caller  | "
-    r===5'd15 ? " a5" : //  Caller  | "
-    r===5'd16 ? " a6" : //  Caller  | "
-    r===5'd17 ? " a7" : //  Caller  | "
-    r===5'd18 ? " s2" : //  Callee  | Saved registers
-    r===5'd19 ? " s3" : //  Callee  | "
-    r===5'd20 ? " s4" : //  Callee  | "
-    r===5'd21 ? " s5" : //  Callee  | "
-    r===5'd22 ? " s6" : //  Callee  | "
-    r===5'd23 ? " s7" : //  Callee  | "
-    r===5'd24 ? " s8" : //  Callee  | "
-    r===5'd25 ? " s9" : //  Callee  | "
-    r===5'd26 ? "s10" : //  Callee  | "
-    r===5'd27 ? "s11" : //  Callee  | "
-    r===5'd28 ? " t3" : //  Caller  | Temporaries
-    r===5'd29 ? " t4" : //  Caller  | "
-    r===5'd30 ? " t5" : //  Caller  | "
-    r===5'd31 ? " t6" : //  Caller  | "
-                "zzz";
-  endfunction
 
 endmodule
 
