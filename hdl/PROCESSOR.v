@@ -40,15 +40,12 @@ module PROCESSOR (
   // branch target, branch taken, signal to flush ID to EM stage
   wire[32-1:0]  btarget;
   wire          btaken, bflush;
-  // branch prediction addr
+  // branch prediction address
   wire[32-1:0]  bptarget_id;
   reg [WB:ID]   bptaken;
-  wire          bpmiss;
 
-  reg [WB:IF]   prev_stall=0;   // stall in last cycle
   reg [WB:IF]   prev_insertb=0; // insertb in last cycle
   reg           prev_bflush=0;  // bflush in last cycle
-  always @(posedge clk) prev_stall    <= stall;
   always @(posedge clk) prev_insertb  <= insertb;
   always @(posedge clk) prev_bflush   <= bflush;
 
@@ -74,9 +71,9 @@ module PROCESSOR (
   // Instruction Registers for each stage
   reg [32-1:0]  ir[ID:WB];
   always @(*)           ir[ID]  = // combinational
-      rst                     ? `NOP        :
-      prev_bflush             ? `NOP        :
-      prev_insertb[IF]        ? `NOP        :
+    rst                       ? `NOP        :
+    prev_bflush               ? `NOP        :
+    prev_insertb[IF]          ? `NOP        :
                                 imem_rdata;
   always @(posedge clk) ir[EM] <= // sequential
     rst                       ? `NOP        :
@@ -112,11 +109,11 @@ module PROCESSOR (
     .clk(clk),
     .rst(rst),
 
-    // If EM is stalling, forward a register value.
+    // When EM is stalling, forward a register value.
     // Otherwise, read normally
-    .rs1(!stall[EM] ? RS1(ir[ID]) : RS1(ir[EM])),
+    .rs1(stall[EM] ? RS1(ir[EM]) : RS1(ir[ID])),
     .rrs1(pre_rrs1),
-    .rs2(!stall[EM] ? RS2(ir[ID]) : RS2(ir[EM])),
+    .rs2(stall[EM] ? RS2(ir[EM]) : RS2(ir[ID])),
     .rrs2(pre_rrs2),
 
     .rd(RD(ir[WB])),
@@ -220,7 +217,7 @@ module PROCESSOR (
                             pc[EM]+4);
   assign  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
                     (op_em==`BRANCH && bcond[FUNCT3(ir[EM])]);
-  assign  bpmiss  = bptaken[EM] != btaken;
+  wire    bpmiss  = bptaken[EM] != btaken;
   // flush if (branch prediction miss or btb was not updated)
   assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
 
