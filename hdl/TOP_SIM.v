@@ -257,8 +257,10 @@ module TOP_SIM ();
     else                        rs2str = {3+3+8{SPACE}};
     if(ir!=`NOP && USEIMM(ir))  $sformat(immstr, "imm(h%x)", IMM(ir));
     else                        immstr = {3+3+8{SPACE}};
-    if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL || n4.p.isecall || n4.p.ismret)
-      $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)", n4.p.btarget[0+:16+2], n4.p.btaken, n4.p.bflush);
+    if(opcode==`BRANCH || opcode==`JALR || opcode==`JAL ||
+        n4.p.bcond[n4.p.BC_ECALL] || n4.p.bcond[n4.p.BC_MRET])
+      $sformat(branchstr, "branch(h%x, taken=%b, flush=%b)",
+        n4.p.btarget[0+:16+2], n4.p.btaken, n4.p.bflush);
     else
       branchstr = "";
 

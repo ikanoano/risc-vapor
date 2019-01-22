@@ -104,6 +104,7 @@ module PROCESSOR (
   assign  stall_req[IF] = 1'b0;
 
   // Instruction Decode stage ========================================
+  wire[ 5-1:0]  op_id = OPCODE(ir[ID]);
   wire[32-1:0]  pre_rrs1, pre_rrs2, rrd;
   GPR gpr(
     .clk(clk),
@@ -127,22 +128,32 @@ module PROCESSOR (
     rrs2    <= pre_rrs2;
   end
 
-  // prefetch values used by branch instructions
-  reg           isecall, ismret;
+  // predetermine branch condition
+  // bcond[7:0] is for branch instruction, [12:9] is for others like jal and mret.
+  localparam[4-1:0] BC_JAL=4'd9, BC_JALR=4'd10, BC_ECALL=4'd11, BC_MRET=4'd12;
+  reg [16-1:0]  bcond=16'h00;
   reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
-  reg [ 8-1:0]  bcond=8'hxx;
   always @(posedge clk) if(!stall[EM]) begin
-    isecall <= !bflush && !insertb[ID] && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
-    ismret  <= !bflush && !insertb[ID] && OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+    if(!bflush && !insertb[ID]) begin
+      bcond[`BEQ ] <= op_id==`BRANCH &&         pre_rrs1  ==         pre_rrs2;
+      bcond[`BNE ] <= op_id==`BRANCH &&         pre_rrs1  !=         pre_rrs2;
+      bcond[`BLT ] <= op_id==`BRANCH && $signed(pre_rrs1) <  $signed(pre_rrs2);
+      bcond[`BGE ] <= op_id==`BRANCH && $signed(pre_rrs1) >= $signed(pre_rrs2);
+      bcond[`BLTU] <= op_id==`BRANCH &&         pre_rrs1  <          pre_rrs2;
+      bcond[`BGEU] <= op_id==`BRANCH &&         pre_rrs1  >=         pre_rrs2;
+
+      bcond[BC_JAL  ] <= op_id==`JAL;
+      bcond[BC_JALR ] <= op_id==`JALR;
+      bcond[BC_ECALL] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
+      bcond[BC_MRET ] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+    end else begin
+      // When (bflush || insertb[ID]) is true, ir[EM] will be `NOP.
+      // bcond should be deasserted so as to sync the state with ir[EM].
+      bcond <= 16'h0;
+    end
     btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
     btarget_jalr  <= pre_rrs1 +IIMM(ir[ID]);
     btarget_branch<= pc[ID]   +BIMM(ir[ID]);
-    bcond[`BEQ ]  <=           pre_rrs1  ==           pre_rrs2;
-    bcond[`BNE ]  <=           pre_rrs1  !=           pre_rrs2;
-    bcond[`BLT ]  <=   $signed(pre_rrs1) <    $signed(pre_rrs2);
-    bcond[`BGE ]  <=   $signed(pre_rrs1) >=   $signed(pre_rrs2);
-    bcond[`BLTU]  <= $unsigned(pre_rrs1) <  $unsigned(pre_rrs2);
-    bcond[`BGEU]  <= $unsigned(pre_rrs1) >= $unsigned(pre_rrs2);
   end
 
   // stall if (ir[ID] is not ready) or (source operand is still in EM stage)
@@ -154,10 +165,8 @@ module PROCESSOR (
   );
 
   // Execute and Memory access stage ========================================
-  wire[ 5-1:0]  op_em = OPCODE(ir[EM]);
-  wire[32-1:0]  arslt;
+  wire[32-1:0]  arslt, crslt;
   reg [32-1:0]  urslt, jrslt;
-  wire[32-1:0]  crslt;
 
   // rrs1 rrs2 forwarding
   wire[32-1:0]  rrs1_fwd = RS1(ir[EM])==RD(ir[WB]) && GPRWE(ir[WB]) ? rrd : rrs1;
@@ -201,24 +210,23 @@ module PROCESSOR (
   // result selector
   reg sel_mem, sel_urslt, sel_jrslt, sel_crslt;
   always @(posedge clk) if(!stall[WB]) begin
-    sel_mem   <= op_em==`LOAD;
-    sel_urslt <= op_em==`AUIPC || op_em==`LUI;
-    sel_jrslt <= op_em==`JALR  || op_em==`JAL;
-    sel_crslt <= op_em==`SYSTEM;
+    sel_mem   <= OPCODE(ir[EM])==`LOAD;
+    sel_urslt <= OPCODE(ir[EM])==`AUIPC || OPCODE(ir[EM])==`LUI;
+    sel_jrslt <= OPCODE(ir[EM])==`JALR  || OPCODE(ir[EM])==`JAL;
+    sel_crslt <= OPCODE(ir[EM])==`SYSTEM;
   end
 
   // branch
   assign  btarget = ~32'h1 & (
-    op_em==`JAL           ? btarget_jal     :
-    op_em==`JALR          ? btarget_jalr    :
-    op_em==`BRANCH && bcond[FUNCT3(ir[EM])] ? btarget_branch  :
-    isecall               ? mtvec & ~32'b11 : // don't support vectored trap address
-    ismret                ? mepc            :
+    bcond[FUNCT3(ir[EM])] ? btarget_branch  :
+    bcond[BC_JAL]         ? btarget_jal     :
+    bcond[BC_JALR]        ? btarget_jalr    :
+    bcond[BC_ECALL]       ? mtvec & ~32'b11 : // don't support vectored trap address
+    bcond[BC_MRET]        ? mepc            :
                             pc[EM]+4);
-  assign  btaken  = op_em==`JAL || op_em==`JALR || isecall || ismret ||
-                    (op_em==`BRANCH && bcond[FUNCT3(ir[EM])]);
+  assign  btaken  = |bcond;
   wire    bpmiss  = bptaken[EM] != btaken;
-  // flush if (branch prediction miss or btb was not updated)
+  // flush if (branch prediction miss) or (btb was not updated)
   assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
 
   // mem I/F
@@ -244,9 +252,8 @@ module PROCESSOR (
   assign  stall_req[EM] = |MEMOE(ir[EM]) & ~mem_ready; // cannot perform memory access
 
   // Write Back stage ========================================
-  wire[32-1:0]  mem_rdata_extended = LOADEXT(ir[WB], mem_rdata);
   assign  rrd     =
-    sel_mem   ? mem_rdata_extended :
+    sel_mem   ? LOADEXT(ir[WB], mem_rdata) :
     sel_urslt ? urslt :
     sel_jrslt ? jrslt :
     sel_crslt ? crslt :
