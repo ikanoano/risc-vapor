@@ -104,64 +104,58 @@ module PROCESSOR (
   assign  stall_req[IF] = 1'b0;
 
   // Instruction Decode stage ========================================
-  wire[ 5-1:0]  op_id = OPCODE(ir[ID]);
-  wire[32-1:0]  pre_rrs1, pre_rrs2, rrd;
+  wire[32-1:0]  pre_rrs1, pre_rrs2, rrs1, rrs2, rrd;
   GPR gpr(
     .clk(clk),
     .rst(rst),
 
-    // When EM is stalling, forward a register value.
-    // Otherwise, read normally
+    // If EM is stalling, re-read values used in EM stage in case they are updated.
     .rs1(stall[EM] ? RS1(ir[EM]) : RS1(ir[ID])),
-    .rrs1(pre_rrs1),
+    .pre_rrs1(pre_rrs1),
+    .rrs1(rrs1),
     .rs2(stall[EM] ? RS2(ir[EM]) : RS2(ir[ID])),
-    .rrs2(pre_rrs2),
+    .pre_rrs2(pre_rrs2),
+    .rrs2(rrs2),
 
     .rd(RD(ir[WB])),
     .rrd(rrd),  // rrd is forwarded to rrs1 and rrs2 in GPR module
     .we(GPRWE(ir[WB]))
   );
 
-  reg [32-1:0]  rrs1, rrs2;
-  always @(posedge clk) begin
-    rrs1    <= pre_rrs1;
-    rrs2    <= pre_rrs2;
-  end
-
   // predetermine branch condition
-  // bcond[7:0] is for branch instruction, [12:9] is for others like jal and mret.
-  localparam[4-1:0] BC_JAL=4'd9, BC_JALR=4'd10, BC_ECALL=4'd11, BC_MRET=4'd12;
-  reg [16-1:0]  bcond=16'h00;
+  localparam[3-1:0]
+    BC_BRNCH=3'd0, BC_JAL=3'd1, BC_JALR=3'd2, BC_ECALL=3'd3, BC_MRET=3'd4;
+  reg [BC_MRET:BC_BRNCH]  bcond=0;
   reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
   always @(posedge clk) if(!stall[EM]) begin
     if(!bflush && !insertb[ID]) begin
-      bcond[`BEQ ] <= op_id==`BRANCH &&         pre_rrs1  ==         pre_rrs2;
-      bcond[`BNE ] <= op_id==`BRANCH &&         pre_rrs1  !=         pre_rrs2;
-      bcond[`BLT ] <= op_id==`BRANCH && $signed(pre_rrs1) <  $signed(pre_rrs2);
-      bcond[`BGE ] <= op_id==`BRANCH && $signed(pre_rrs1) >= $signed(pre_rrs2);
-      bcond[`BLTU] <= op_id==`BRANCH &&         pre_rrs1  <          pre_rrs2;
-      bcond[`BGEU] <= op_id==`BRANCH &&         pre_rrs1  >=         pre_rrs2;
-
-      bcond[BC_JAL  ] <= op_id==`JAL;
-      bcond[BC_JALR ] <= op_id==`JALR;
-      bcond[BC_ECALL] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
-      bcond[BC_MRET ] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+      bcond[BC_BRNCH] <= OPCODE(ir[ID])==`BRANCH && (
+        (FUNCT3(ir[ID])==`BEQ  &&         pre_rrs1  ==         pre_rrs2 ) ||
+        (FUNCT3(ir[ID])==`BNE  &&         pre_rrs1  !=         pre_rrs2 ) ||
+        (FUNCT3(ir[ID])==`BLT  && $signed(pre_rrs1) <  $signed(pre_rrs2)) ||
+        (FUNCT3(ir[ID])==`BGE  && $signed(pre_rrs1) >= $signed(pre_rrs2)) ||
+        (FUNCT3(ir[ID])==`BLTU &&         pre_rrs1  <          pre_rrs2 ) ||
+        (FUNCT3(ir[ID])==`BGEU &&         pre_rrs1  >=         pre_rrs2));
+      bcond[BC_JAL  ] <= OPCODE(ir[ID])==`JAL;
+      bcond[BC_JALR ] <= OPCODE(ir[ID])==`JALR;
+      bcond[BC_ECALL] <= ir[ID]==`ECALL;
+      bcond[BC_MRET ] <= ir[ID]==`MRET;
     end else begin
       // When (bflush || insertb[ID]) is true, ir[EM] will be `NOP.
       // bcond should be deasserted so as to sync the state with ir[EM].
-      bcond <= 16'h0;
+      bcond <= 0;
     end
     btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
     btarget_jalr  <= pre_rrs1 +IIMM(ir[ID]);
     btarget_branch<= pc[ID]   +BIMM(ir[ID]);
   end
 
-  // stall if (ir[ID] is not ready) or (source operand is still in EM stage)
+  // stall if (ir[ID] is not ready) || (pre_rrs1 or pre_rrs2 is not ready but used)
   // TUNE: deal with the case where rs2 or rs1 is not used
   assign  stall_req[ID] = imem_miss || (
     GPRWE(ir[EM]) &&
-    (RD(ir[EM])==RS1(ir[ID]) || RD(ir[EM])==RS2(ir[ID])) &&
-    (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use pre_rrs1
+    (RS1(ir[ID])==RD(ir[EM]) || RS2(ir[ID])==RD(ir[EM])) &&
+    (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use pre_rrs1,2
   );
 
   // Execute and Memory access stage ========================================
@@ -173,16 +167,14 @@ module PROCESSOR (
   wire[32-1:0]  rrs2_fwd = RS2(ir[EM])==RD(ir[WB]) && GPRWE(ir[WB]) ? rrd : rrs2;
 
   // R-type and I-type instructions result
-  wire[32-1:0]  operand1 = rrs1_fwd;
-  wire[32-1:0]  operand2 = OPCODE(ir[EM])==`OP ? rrs2_fwd : IIMM(ir[EM]);
   ALU alu (
     .clk(clk),
     .rst(rst),
     .opcode(OPCODE(ir[EM])),
     .funct3(FUNCT3(ir[EM])),
     .funct7(FUNCT7(ir[EM])),
-    .opd1(operand1),
-    .opd2(operand2),
+    .opd1(rrs1_fwd),
+    .opd2(OPCODE(ir[EM])==`OP ? rrs2_fwd : IIMM(ir[EM])), // OP or OPIMM ?
     .rslt(arslt)
   );
   always @(posedge clk) if(!stall[WB]) begin
@@ -208,22 +200,23 @@ module PROCESSOR (
   );
 
   // result selector
-  reg sel_mem, sel_urslt, sel_jrslt, sel_crslt;
+  localparam[2-1:0] DSEL_M=2'd0, DSEL_U=2'd1, DSEL_J=2'd2, DSEL_C=2'd3;
+  reg [DSEL_C:DSEL_M] dsel;
   always @(posedge clk) if(!stall[WB]) begin
-    sel_mem   <= OPCODE(ir[EM])==`LOAD;
-    sel_urslt <= OPCODE(ir[EM])==`AUIPC || OPCODE(ir[EM])==`LUI;
-    sel_jrslt <= OPCODE(ir[EM])==`JALR  || OPCODE(ir[EM])==`JAL;
-    sel_crslt <= OPCODE(ir[EM])==`SYSTEM;
+    dsel[DSEL_M]  <= OPCODE(ir[EM])==`LOAD;
+    dsel[DSEL_U]  <= OPCODE(ir[EM])==`AUIPC   || OPCODE(ir[EM])==`LUI;
+    dsel[DSEL_J]  <= OPCODE(ir[EM])==`JALR    || OPCODE(ir[EM])==`JAL;
+    dsel[DSEL_C]  <= OPCODE(ir[EM])==`SYSTEM;
   end
 
   // branch
   assign  btarget = ~32'h1 & (
-    bcond[FUNCT3(ir[EM])] ? btarget_branch  :
-    bcond[BC_JAL]         ? btarget_jal     :
-    bcond[BC_JALR]        ? btarget_jalr    :
-    bcond[BC_ECALL]       ? mtvec & ~32'b11 : // don't support vectored trap address
-    bcond[BC_MRET]        ? mepc            :
-                            pc[EM]+4);
+    bcond[BC_BRNCH]   ? btarget_branch  :
+    bcond[BC_JAL]     ? btarget_jal     :
+    bcond[BC_JALR]    ? btarget_jalr    :
+    bcond[BC_ECALL]   ? mtvec & ~32'b11 : // don't support vectored trap address
+    bcond[BC_MRET]    ? mepc            :
+                        pc[EM]+4);
   assign  btaken  = |bcond;
   wire    bpmiss  = bptaken[EM] != btaken;
   // flush if (branch prediction miss) or (btb was not updated)
@@ -253,11 +246,11 @@ module PROCESSOR (
 
   // Write Back stage ========================================
   assign  rrd     =
-    sel_mem   ? LOADEXT(ir[WB], mem_rdata) :
-    sel_urslt ? urslt :
-    sel_jrslt ? jrslt :
-    sel_crslt ? crslt :
-                arslt;
+    dsel[DSEL_M]  ? LOADEXT(ir[WB], mem_rdata) :
+    dsel[DSEL_U]  ? urslt :
+    dsel[DSEL_J]  ? jrslt :
+    dsel[DSEL_C]  ? crslt :
+                    arslt;
 
   assign  stall_req[WB] = mem_miss | halt;
 

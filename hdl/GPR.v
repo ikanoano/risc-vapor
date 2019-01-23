@@ -7,9 +7,11 @@ module GPR(
   input   wire            rst,
 
   input   wire[  5-1:0]   rs1,
-  output  wire[ 32-1:0]   rrs1,
+  output  wire[ 32-1:0]   pre_rrs1,
+  output  reg [ 32-1:0]   rrs1,
   input   wire[  5-1:0]   rs2,
-  output  wire[ 32-1:0]   rrs2,
+  output  wire[ 32-1:0]   pre_rrs2,
+  output  reg [ 32-1:0]   rrs2,
 
   input   wire[  5-1:0]   rd,
   input   wire[ 32-1:0]   rrd,
@@ -18,8 +20,11 @@ module GPR(
 
   reg [31:0]  r[0:31];
 
-  assign rrs1 = rs1==rd && we ? rrd : r[rs1];
-  assign rrs2 = rs2==rd && we ? rrd : r[rs2];
+  // forwarding
+  assign pre_rrs1 = rs1==rd && we ? rrd : r[rs1];
+  assign pre_rrs2 = rs2==rd && we ? rrd : r[rs2];
+  always @(posedge clk) rrs1  <= pre_rrs1;
+  always @(posedge clk) rrs2  <= pre_rrs2;
 
   always @(posedge clk) begin
     if(we) r[rd] <= rrd;
