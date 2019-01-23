@@ -52,21 +52,29 @@ module PROCESSOR (
   // Program Counters for each stage
   reg [32-1:0]  pc_if_no_bpred=0;
   reg [32-1:0]  pc[IF:WB];
-  integer i;
+  assign  pc_disp = pc[WB];
 
   always @(posedge clk) pc_if_no_bpred <=
-    rst             ? `BOOT       :
-    bflush          ? btarget     :
-    stall[IF]       ? pc[IF]      :
-                      pc[IF]+4;
-  always @(*) pc[IF] = bptaken[ID] ? bptarget_id : pc_if_no_bpred; // combinational
-  always @(posedge clk) begin
-    for(i=ID; i<=WB; i=i+1) pc[i] <= // sequential
-      rst           ? `BOOT       :
-      stall[i]      ? pc[i]       :
-                      pc[i-1];
-  end
-  assign  pc_disp = pc[WB];
+    rst                       ? `BOOT       :
+    bflush                    ? btarget     :
+    stall[IF]                 ? pc[IF]      :
+                                pc[IF]+4;
+  always @(*)           pc[IF] =  // combinational
+    bptaken[ID]               ? bptarget_id :
+                                pc_if_no_bpred;
+  always @(posedge clk) pc[ID] <= // sequential
+    rst                       ? `BOOT       :
+    stall[ID]                 ? pc[ID]      :
+                                pc[IF];
+  always @(posedge clk) pc[EM] <= // sequential
+    rst                       ? `BOOT       :
+    stall[EM]                 ? pc[EM]      :
+                                pc[ID];
+  always @(posedge clk) pc[WB] <= // sequential
+    rst                       ? `BOOT       :
+    stall[WB]                 ? pc[WB]      :
+                                pc[EM];
+
 
   // Instruction Registers for each stage
   reg [32-1:0]  ir[ID:WB];
