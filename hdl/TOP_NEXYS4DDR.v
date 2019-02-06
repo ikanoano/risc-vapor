@@ -126,8 +126,8 @@ module TOP_NEXYS4DDR (
   wire[32-1:0]  seg7;
   wire[ 8-1:0]  rx_rdata;
   wire          rx_valid;
-  wire[32-1:0]  mmio_rdata = 0;
-  wire          mmio_valid = 1'b0;
+  wire[32-1:0]  mmio_rdata;
+  wire          mmio_valid;
   MMIO #(
     .MEM_SCALE(MEM_SCALE),
     .CPU_FREQ (CPU_FREQ),

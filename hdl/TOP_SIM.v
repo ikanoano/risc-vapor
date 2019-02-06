@@ -73,6 +73,7 @@ module TOP_SIM ();
       $dumpvars(1, n4.p, n4.p.gpr, n4.p.bp);
       $dumpvars(1, n4.ic);
       $dumpvars(1, n4.dc);
+      $dumpvars(1, n4.mmio);
       $dumpvars(1, n4.arbiter);
       $dumplimit(1024*1024*1024);
     end
