@@ -63,15 +63,18 @@ module TOP_SIM ();
   initial begin
     #1
     if(DUMP) begin
-      $dumpfile("/tmp/wave.vcd");
+      $dumpfile("wave.vcd");
   `ifdef IVERILOG
       $dumpvars(1, n4.p.pc[0], n4.p.pc[1], n4.p.pc[2], n4.p.pc[3]);
       $dumpvars(1,             n4.p.ir[1], n4.p.ir[2], n4.p.ir[3]);
-      $dumpvars(1, n4.p, n4.p.gpr, n4.p.bp);
-      $dumpvars(1, n4.dc);
       $display("iverilog");
   `endif
       $dumpvars(1, n4);
+      $dumpvars(1, n4.p, n4.p.gpr, n4.p.bp);
+      $dumpvars(1, n4.ic);
+      $dumpvars(1, n4.dc);
+      $dumpvars(1, n4.arbiter);
+      $dumplimit(1024*1024*1024);
     end
   end
 
@@ -112,13 +115,6 @@ module TOP_SIM ();
       // load program directly from an image file
       $display("load program directly: %0s", IMAGE);
 
-      for(i=0; i<2**ISCALE; i=i+1) begin
-        dummy = $fread(fdata, fd);
-        n4.imem.ram[i] = {fdata[0+:8], fdata[8+:8],  fdata[16+:8], fdata[24+:8]};
-      end
-
-      dummy = $rewind(fd);
-
       for(i=0; i<2**IMAGESCALE && !$feof(fd); i=i+1) begin
         dummy = $fread(fdata, fd);
         n4.dram.mb.slv_reg[i] = {fdata[0+:8], fdata[8+:8],  fdata[16+:8], fdata[24+:8]};
@@ -139,8 +135,8 @@ module TOP_SIM ();
     .TXD(prog_txd),
     .READY(prog_ready)
   );
-  defparam  n4.ut.SERIAL_WCNT = SERIAL_WCNT;
-  defparam  n4.pl.serc.SERIAL_WCNT = SERIAL_WCNT;
+  defparam  n4.mmio.utx.SERIAL_WCNT = SERIAL_WCNT;
+  defparam  n4.mmio.urx.SERIAL_WCNT = SERIAL_WCNT;
 
 
   // cpu on nexys4 ddr
@@ -153,8 +149,8 @@ module TOP_SIM ();
   );
 
   // peep the memory mapped IO
-  wire          mmio_oe = n4.mmio_oe;
-  wire[ 4-1:0]  mmio_we = n4.mmio_we;
+  wire          mmio_oe = n4.mmio.oe;
+  wire[ 4-1:0]  mmio_we = n4.mmio.we;
   real          stat_tmp;
   always @(posedge clk) begin
     if(mmio_oe && mmio_we[0]) begin  // write
@@ -233,7 +229,7 @@ module TOP_SIM ();
     //else            ibstr = "";
     if(TIME) $write("%8d ", $time);
     $write("%8s | ", stallstr);
-    if(TRACE && n4.dram.reading) $write("reading dram");
+    //if(TRACE && n4.dram.reading) $write("reading dram");
     if(stall[WB]) begin
       $display("");
       disable trace;  // early return

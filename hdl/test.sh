@@ -9,7 +9,7 @@ for elf in ../testbin/*.elf; do
   riscv64-linux-gnu-objcopy -Obinary -R .tohost -R .fromhost $elf ${target}_
   dd status=none if=/dev/zero bs=512k count=1 >> ${target}_
   dd status=none if=${target}_ bs=512k count=1 > ${target}
-  make run-trace MAX_CYCLE=1000 IMAGE=$target DUMP=0 &> $trace
+  make run-trace MAX_CYCLE=10000 IMAGE=$target DUMP=0 &> $trace
   if grep -q 'output: ' $trace && grep -q 'Abort' $trace; then
     result="OK"
     pass=$((pass+1))

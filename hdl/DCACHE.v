@@ -38,7 +38,8 @@ module DCACHE #(
   reg [MEM_SCALE-1:0] last_addr=0;
   reg [       32-1:0] last_wdata;
   always @(posedge clk) prev_oe <= oe;
-  always @(posedge clk) prev_we <= we;
+  always @(posedge clk) prev_we <= oe & we;
+
   always @(posedge clk) if(oe[0]) last_oe     <= oe;
   always @(posedge clk) if(oe[0]) last_addr   <= addr;
   always @(posedge clk) if(oe[0] & we[0]) last_wdata  <= wdata;
@@ -113,10 +114,10 @@ module DCACHE #(
   assign  valid = (hvalid&rvalid)==hvalid && TAG(last_addr)==rtag && reading;
   reg     loading=1'b0;
   always @(posedge clk) loading <=
-    rst         ? 1'b0 :
-    super_oe    ? 1'b1 :
-    super_valid ? 1'b0 :
-                  loading;
+    rst                       ? 1'b0 :
+    super_oe && !super_we[0]  ? 1'b1 :
+    super_valid               ? 1'b0 :
+                              loading;
 
   // load and write through
   //                                  load                 ||  write
@@ -130,7 +131,7 @@ module DCACHE #(
   // Update vta[addr] when we is asserted.
   // Overwrite vta[super_addr] when super_valid is asserted.
   // It is guaranteed that we and super_addr are not asserted at the same time.
-  always @(posedge clk) vta_waddr   <= we[0] ? addr : super_addr;
+  always @(posedge clk) vta_waddr   <= oe[0]&&we[0] ? addr : super_addr;
   always @(posedge clk) wvalid_add  <= ((oe&we)<<addr[1:0]) | {4{super_valid}};
   assign  wtag        = TAG(vta_waddr);
   assign  wvalid_org  = (prev_we[0] && rtag==wtag) ? rvalid : 4'h0;
@@ -143,12 +144,12 @@ module DCACHE #(
   end
 
   always @(posedge clk) begin
-    if(super_valid && we[0]) begin
+    if(super_valid && (oe[0]&&we[0])) begin
       $display("super_valid and we must not be asserted at the same time: %b %b",
         super_valid, we);
       $finish();
     end
-    if(we[0] && ({2'd0, we}<<addr[1:0])>=16) begin
+    if((oe[0]&&we[0]) && ({2'd0, we}<<addr[1:0])>=16) begin
       $display("Missaligned update not supported: %b %x", we, addr);
       $finish();
     end

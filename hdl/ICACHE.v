@@ -55,7 +55,7 @@ module ICACHE #(
 
     .oe0(1'b1),
     .addr0(oe ? addr[0+:SCALE] : last_addr[0+:SCALE]),
-    .wdata0(0),
+    .wdata0({ICWIDTH{1'b0}}),
     .we0(1'b0),
     .rdata0({ic_valid, ic_tag, ic_inst}),
 

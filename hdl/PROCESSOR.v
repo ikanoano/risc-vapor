@@ -40,6 +40,7 @@ module PROCESSOR (
   // branch target, branch taken, signal to flush ID to EM stage
   wire[32-1:0]  btarget;
   wire          btaken, bflush;
+  reg           bflush_reading_inst=1'b0;
   // branch prediction address
   wire[32-1:0]  bptarget_id;
   reg [WB:ID]   bptaken;
@@ -82,6 +83,7 @@ module PROCESSOR (
     rst                       ? `NOP        :
     prev_bflush               ? `NOP        :
     prev_insertb[IF]          ? `NOP        :
+    bflush_reading_inst        ? `NOP        :
                                 imem_rdata;
   always @(posedge clk) ir[EM] <= // sequential
     rst                       ? `NOP        :
@@ -99,7 +101,7 @@ module PROCESSOR (
   // Instruction Fetch stage ========================================
   // imem I/F
   assign  imem_addr   = pc[IF];
-  assign  imem_oe     = !stall[IF];
+  assign  imem_oe     = !rst && !stall[IF];
 
   reg     imem_reading = 1'b0;
   wire    imem_miss    = imem_reading && !imem_valid;
@@ -108,6 +110,11 @@ module PROCESSOR (
     imem_oe     ? 1'b1 :
     imem_valid  ? 1'b0 :
                   imem_reading;
+  always @(posedge clk) bflush_reading_inst  <=
+    rst                     ? 1'b0 :
+    imem_reading && bflush  ? 1'b1 :
+    imem_valid              ? 1'b0 :
+                              bflush_reading_inst;
 
   assign  stall_req[IF] = 1'b0;
 
@@ -232,9 +239,9 @@ module PROCESSOR (
 
   // mem I/F
   wire[32-1:0] pre_mem_addr   = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-  wire[ 4-1:0] pre_mem_oe     = MEMOE(ir[EM]) & {4{!stall[EM]}};
+  wire[ 4-1:0] pre_mem_oe     = !rst && MEMOE(ir[EM]) & {4{!stall[EM]}};
   wire[32-1:0] pre_mem_wdata  = rrs2_fwd;
-  wire[ 4-1:0] pre_mem_we     = MEMWE(ir[EM]) & {4{!stall[EM]}};
+  wire[ 4-1:0] pre_mem_we     = !rst && MEMWE(ir[EM]) & {4{!stall[EM]}};
   always @(posedge clk) mem_addr  <= pre_mem_addr;
   always @(posedge clk) mem_oe    <= pre_mem_oe;
   always @(posedge clk) mem_wdata <= pre_mem_wdata;

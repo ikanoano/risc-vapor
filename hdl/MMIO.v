@@ -17,6 +17,8 @@ module MMIO #(
   output  reg [       32-1:0] rdata,
   output  reg                 valid,
 
+  input   wire                uart_txd,
+  input   wire                uart_rxd,
   input   wire[        5-1:0] btn,  // {down, right, left, up, center}
   input   wire[       16-1:0] sw,
   input   wire[       32-1:0] bp_cnt_hit, bp_cnt_pred,
@@ -32,7 +34,8 @@ module MMIO #(
 
   wire[32-1:0]  rnd;
   reg [ 8-1:0]  tx_wdata;
-  reg           tx_we, tx_ready;
+  reg           tx_we;
+  wire          tx_ready;
   reg [ 8-1:0]  rx_rdata_hold;
   reg           unread=1'b0;
   always @(posedge clk) begin
@@ -93,7 +96,7 @@ module MMIO #(
     .RST_X(~rst),
     .RXD(uart_rxd),
     .DATA(rx_rdata),
-    .VALID(rx_valid)
+    .EN(rx_valid)
   );
   always @(posedge clk) if(rx_valid) rx_rdata_hold <= rx_rdata;
 

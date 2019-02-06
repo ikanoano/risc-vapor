@@ -80,7 +80,7 @@ module TOP_NEXYS4DDR (
   wire[32-1:0]  imem_addr;
   wire          imem_oe;
   wire[32-1:0]  imem_rdata;
-  wire          imem_valid=0;
+  wire          imem_valid;
 
   wire[32-1:0]  mem_addr;
   wire[ 4-1:0]  mem_oe, mem_we;
@@ -143,6 +143,8 @@ module TOP_NEXYS4DDR (
     .rdata(mmio_rdata),
     .valid(mmio_valid),
 
+    .uart_rxd(uart_rxd),
+    .uart_txd(uart_txd),
     .btn(btn),  // {down, right, left, up, center}
     .sw(sw),
     .bp_cnt_hit(bp_cnt_hit),  .bp_cnt_pred  (bp_cnt_pred),

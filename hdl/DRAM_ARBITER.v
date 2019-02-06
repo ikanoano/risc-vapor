@@ -73,7 +73,7 @@ module DRAM_ARBITER #(
       last_ioe    <= last_ioe | ioe;
       last_doe    <= doe; // basically 1'b0
       dram_oe     <= 1'b1;
-      dram_we     <= last_dwe;
+      dram_we     <= last_doe & last_dwe;
       dram_addr   <= last_daddr;
       dram_wdata  <= last_dwdata;
     end else begin

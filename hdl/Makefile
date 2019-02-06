@@ -27,6 +27,9 @@ OBJS			=\
 	UART.v\
 	PSEUDO.v\
 	DRAM.v\
+	DRAM_ARBITER.v\
+	MMIO.v\
+	ICACHE.v\
 	DCACHE.v\
 	LFSR.v\
 	TOP_NEXYS4DDR.v\
