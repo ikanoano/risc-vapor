@@ -239,9 +239,9 @@ module PROCESSOR (
 
   // mem I/F
   wire[32-1:0] pre_mem_addr   = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
-  wire[ 4-1:0] pre_mem_oe     = !rst && MEMOE(ir[EM]) & {4{!stall[EM]}};
+  wire[ 4-1:0] pre_mem_oe     = rst ? 4'h0 : MEMOE(ir[EM]) & {4{!stall[EM]}};
   wire[32-1:0] pre_mem_wdata  = rrs2_fwd;
-  wire[ 4-1:0] pre_mem_we     = !rst && MEMWE(ir[EM]) & {4{!stall[EM]}};
+  wire[ 4-1:0] pre_mem_we     = rst ? 4'h0 : MEMWE(ir[EM]) & {4{!stall[EM]}};
   always @(posedge clk) mem_addr  <= pre_mem_addr;
   always @(posedge clk) mem_oe    <= pre_mem_oe;
   always @(posedge clk) mem_wdata <= pre_mem_wdata;
