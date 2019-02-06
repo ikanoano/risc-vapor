@@ -16,7 +16,7 @@ module DRAM (
   input   wire[ 4-1:0]  dram_we,
   output  reg [32-1:0]  dram_rdata,
   output  wire          dram_valid,
-  output  wire          dram_busy,
+  output  wire          dram_written,
 
   output  wire[13-1:0]  ddr2_addr,
   output  wire[2:0]     ddr2_ba,
@@ -37,7 +37,7 @@ module DRAM (
   reg         read_done=1'b0, write_done=1'b0;
   reg         reading=1'b0,   writing=1'b0;
   assign      dram_valid  = read_done;
-  assign      dram_busy   = reading | writing;
+  assign      dram_written= write_done;
 
   // read address channel
   reg [ 32-1:0] S_AXI_araddr=32'b0;   // out
@@ -82,8 +82,8 @@ module DRAM (
   // write
   always @(posedge clk) begin
     if(writing) begin
-      writing       <= ~S_AXI_bvalid;
-      write_done    <=  S_AXI_bvalid;
+      writing       <=  (S_AXI_awvalid || S_AXI_wvalid);  //~S_AXI_bvalid;
+      write_done    <= ~(S_AXI_awvalid || S_AXI_wvalid);  // S_AXI_bvalid;
       S_AXI_awvalid <= S_AXI_awvalid & ~S_AXI_awready;
       S_AXI_wvalid  <= S_AXI_wvalid  & ~S_AXI_wready;
     end else if(!reading) begin // idle

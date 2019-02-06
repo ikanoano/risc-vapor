@@ -9,7 +9,7 @@ module PROCESSOR (
   input   wire          rst,
   input   wire          halt,
   // I/F for memory
-  output  wire[16-1:0]  imem_addr,
+  output  wire[32-1:0]  imem_addr,
   output  wire          imem_oe,
   input   wire[32-1:0]  imem_rdata,
   input   wire          imem_valid,
@@ -98,7 +98,7 @@ module PROCESSOR (
 
   // Instruction Fetch stage ========================================
   // imem I/F
-  assign  imem_addr   = pc[IF][0+:16];
+  assign  imem_addr   = pc[IF];
   assign  imem_oe     = !stall[IF];
 
   reg     imem_reading = 1'b0;

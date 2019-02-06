@@ -4,7 +4,7 @@
 
 module DCACHE #(
   parameter MEM_SCALE = 27,
-  parameter SCALE     = 10  // 2**SCALE byte is allocated
+  parameter SCALE     = 10  // 2**SCALE BYTE is allocated
 ) (
   input   wire                clk,
   input   wire                rst,
@@ -14,12 +14,16 @@ module DCACHE #(
   input   wire[       32-1:0] wdata,
   input   wire[        4-1:0] we,
   output  wire[       32-1:0] rdata,
-  output  wire                hit,
+  output  wire                valid,
+  output  wire                busy,
   // load data from dram
-  input   wire                load_oe,
-  input   wire[MEM_SCALE-1:0] load_addr,
-  input   wire[       32-1:0] load_wdata,
-  input   wire[        4-1:0] load_we,
+  output  wire                super_oe,     // request to load 4byte / write
+  output  wire[MEM_SCALE-1:0] super_addr,
+  output  wire[       32-1:0] super_wdata,
+  output  wire[        4-1:0] super_we,
+  input   wire[       32-1:0] super_rdata,
+  input   wire                super_valid,
+  input   wire                super_written,
   // clear
   input   wire                clear,
   // stat
@@ -28,72 +32,131 @@ module DCACHE #(
 );
   localparam WIDTH_TAG = MEM_SCALE-SCALE;
 
-  reg [4+WIDTH_TAG-1:0] valid_and_tag[0:2**(SCALE-2)-1];
+  reg [        4-1:0] prev_oe;
+  reg [        4-1:0] prev_we;
+  reg [        4-1:0] last_oe;
+  reg [MEM_SCALE-1:0] last_addr=0;
+  reg [       32-1:0] last_wdata;
+  always @(posedge clk) prev_oe <= oe;
+  always @(posedge clk) prev_we <= we;
+  always @(posedge clk) if(oe[0]) last_oe     <= oe;
+  always @(posedge clk) if(oe[0]) last_addr   <= addr;
+  always @(posedge clk) if(oe[0] & we[0]) last_wdata  <= wdata;
+
+  reg [SCALE-2-1:0]   clear_addr=0;
+  always @(posedge clk) if(clear) clear_addr <= clear_addr + 1;
+
+  reg     reading=1'b0;
+  always @(posedge clk) reading <=
+    rst             ? 1'b0 :
+    oe[0] && !we[0] ? 1'b1 :
+    valid           ? 1'b0 :
+                      reading;
+  wire    written;
+  reg     writing=1'b0;
+  always @(posedge clk) writing <=
+    rst             ? 1'b0 :
+    oe[0] && we[0]  ? 1'b1 :
+    written         ? 1'b0 :
+                      writing;
+  assign  busy  = reading || writing || oe[0];
+
   RAM #(
     .SCALE(SCALE)
-  ) body (
+  ) dcache (
     .clk(clk),
     .rst(rst),
 
-    .oe0(oe[0]),
-    .addr0(addr[0+:SCALE]),
+    .oe0(oe[0] || reading),
+    .addr0(oe[0] ? addr[0+:SCALE] : last_addr[0+:SCALE]),
     .wdata0(wdata),
     .we0(we),
     .rdata0(rdata),
 
-    .oe1(load_oe),
-    .addr1(load_addr[0+:SCALE]),
-    .wdata1(load_wdata),
-    .we1(load_we),
+    .oe1(super_valid),
+    .addr1(super_addr[0+:SCALE]),
+    .wdata1(super_rdata),
+    .we1({4{super_valid}}),
     .rdata1()
   );
-  reg [SCALE-1:0] clear_addr=0;
-  always @(posedge clk) clear_addr <= clear_addr + 4;
 
-  reg [WIDTH_TAG-1:0] rtag=0;
-  reg [        4-1:0] rvalid=0;
-  always @(posedge clk) {rvalid, rtag} <= valid_and_tag[addr[2+:SCALE-2]];
+  // valid and tag array with byte granularity
+  wire[        4-1:0] rvalid;
+  wire[WIDTH_TAG-1:0] rtag, wtag;
+  reg [MEM_SCALE-1:0] vta_waddr=0;
+  reg [        4-1:0] wvalid_add=0;
+  wire[        4-1:0] wvalid_org, wvalid;
+  BARERAM #(
+    .WIDTH(4+WIDTH_TAG),
+    .SCALE(SCALE-2), // 2**SCALE word is allocated
+    .INIT (1)
+  ) vta (
+    .clk(clk),
+    .rst(rst),
 
-  reg [MEM_SCALE-1:0] waddr=0;
-  reg [        4-1:0] wwe=0;
-  always @(posedge clk) waddr <= clear ? clear_addr : (we[0] ? addr : load_addr);
-  always @(posedge clk) wwe   <= {4{clear}} | we | load_we;
-  wire[WIDTH_TAG-1:0] wtag    = waddr[SCALE+:WIDTH_TAG];
-  wire[        4-1:0] wvalid  =
-    clear ? 4'h0 : (wwe<<waddr[1:0]) | (rtag==wtag ? rvalid : 4'h0);
-  always @(posedge clk) if(wwe[0]) valid_and_tag[waddr[2+:SCALE-2]] <= {wvalid, wtag};
+    .oe0(1'b1),
+    .addr0(oe[0] ? addr[2+:SCALE-2] : last_addr[2+:SCALE-2]),
+    .wdata0(),
+    .we0(1'b0),
+    .rdata0({rvalid, rtag}),
 
-  reg [        4-1:0] prev_oe=0;
-  reg [MEM_SCALE-1:0] prev_addr=0;
-  always @(posedge clk) prev_oe   <= oe;
-  always @(posedge clk) prev_addr <= addr;
-  wire[WIDTH_TAG-1:0] htag        = prev_addr[SCALE+:WIDTH_TAG];
-  wire[        4-1:0] hvalid      = prev_oe<<prev_addr[1:0];
-  assign hit = prev_oe[0] && rtag==htag && (hvalid&rvalid)==hvalid;
+    .oe1(|wvalid_add || clear),
+    .addr1(clear ? clear_addr : vta_waddr[2+:SCALE-2]),
+    .wdata1({clear ? 4'h0 : wvalid, wtag}),
+    .we1(|wvalid_add || clear),
+    .rdata1()
+  );
 
+  // Confirm that the cache was hit, then load data if necessary.
+  // valid is eventually asserted when not hit but load is completed.
+  wire[4-1:0] hvalid = last_oe << last_addr[1:0];
+  assign  valid = (hvalid&rvalid)==hvalid && TAG(last_addr)==rtag && reading;
+  reg     loading=1'b0;
+  always @(posedge clk) loading <=
+    rst         ? 1'b0 :
+    super_oe    ? 1'b1 :
+    super_valid ? 1'b0 :
+                  loading;
+
+  // load and write through
+  //                                  load                 ||  write
+  assign  super_oe    = (prev_oe[0] && !valid && !loading) || |prev_we;
+  assign  super_addr  = // To load 4byte, mask 2bit LSB if load.
+    {last_addr[2+:MEM_SCALE-2], prev_we[0] ? last_addr[0+:2] : 2'b00};
+  assign  super_wdata = last_wdata;
+  assign  super_we    = prev_oe & prev_we;
+  assign  written     = super_written;
+
+  // Update vta[addr] when we is asserted.
+  // Overwrite vta[super_addr] when super_valid is asserted.
+  // It is guaranteed that we and super_addr are not asserted at the same time.
+  always @(posedge clk) vta_waddr   <= we[0] ? addr : super_addr;
+  always @(posedge clk) wvalid_add  <= ((oe&we)<<addr[1:0]) | {4{super_valid}};
+  assign  wtag        = TAG(vta_waddr);
+  assign  wvalid_org  = (prev_we[0] && rtag==wtag) ? rvalid : 4'h0;
+  assign  wvalid      = wvalid_org | wvalid_add;
+
+  // stat
   always @(posedge clk) begin
-    dc_cnt_hit    <= rst ? 32'b0 : dc_cnt_hit    + hit;
+    dc_cnt_hit    <= rst ? 32'b0 : dc_cnt_hit + (prev_oe[0]&&!prev_we[0]&&valid);
     dc_cnt_access <= rst ? 32'b0 : dc_cnt_access + (oe[0] && !we[0]);
   end
 
   always @(posedge clk) begin
-    if(load_we[0] && we[0]) begin
-      $display("Conflict we: %b %b", load_we, we);
+    if(super_valid && we[0]) begin
+      $display("super_valid and we must not be asserted at the same time: %b %b",
+        super_valid, we);
       $finish();
     end
     if(we[0] && ({2'd0, we}<<addr[1:0])>=16) begin
       $display("Missaligned update not supported: %b %x", we, addr);
       $finish();
     end
-    if(load_we[0] && {2'd0, load_we}<<load_addr[1:0]>=16) begin
-      $display("Missaligned load not supported: %b %x", load_we, load_addr);
-      $finish();
-    end
   end
 
-
-  integer i;
-  initial for(i=0; i<2**(SCALE-2); i=i+1) valid_and_tag[i] = 0;
+  function[WIDTH_TAG-1:0]  TAG(input[MEM_SCALE-1:0] a);
+    TAG = a[SCALE +: WIDTH_TAG];
+  endfunction
 endmodule
 
 `default_nettype wire
