@@ -1,5 +1,6 @@
 `default_nettype none
 `timescale 1ns/100ps
+`include "INST.v"
 
 module ICACHE #(
   parameter MEM_SCALE = 27,
@@ -61,7 +62,7 @@ module ICACHE #(
 
     .oe1(super_valid || clear),
     .addr1(clear ? clear_addr : last_addr[0+:SCALE]),
-    .wdata1({~clear, TAG(last_addr), super_rdata}),
+    .wdata1({~clear, TAG(last_addr), clear ? `NOP : super_rdata}),
     .we1(super_valid || clear),
     .rdata1()
   );
