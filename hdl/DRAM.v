@@ -82,8 +82,8 @@ module DRAM (
   // write
   always @(posedge clk) begin
     if(writing) begin
-      writing       <=  (S_AXI_awvalid || S_AXI_wvalid);  //~S_AXI_bvalid;
-      write_done    <= ~(S_AXI_awvalid || S_AXI_wvalid);  // S_AXI_bvalid;
+      writing       <= ~S_AXI_bvalid;
+      write_done    <=  S_AXI_bvalid;
       S_AXI_awvalid <= S_AXI_awvalid & ~S_AXI_awready;
       S_AXI_wvalid  <= S_AXI_wvalid  & ~S_AXI_wready;
     end else if(!reading) begin // idle
