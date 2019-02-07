@@ -119,7 +119,6 @@ module PROCESSOR (
   assign  stall_req[IF] = 1'b0;
 
   // Instruction Decode stage ========================================
-  wire[ 5-1:0]  op_id = OPCODE(ir[ID]);
   wire[32-1:0]  pre_rrs1, pre_rrs2, rrs1, rrs2, rrd;
   GPR gpr(
     .clk(clk),
@@ -141,21 +140,25 @@ module PROCESSOR (
   // predetermine branch condition
   // bcond[7:0] is for branch instruction, [12:9] is for others like jal and mret.
   localparam[4-1:0] BC_JAL=4'd9, BC_JALR=4'd10, BC_ECALL=4'd11, BC_MRET=4'd12;
-  reg [16-1:0]  bcond=16'h00;
+  reg [16-1:0]  bcond=16'h0;
   reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
   always @(posedge clk) if(!stall[EM]) begin
     if(!bflush && !insertb[ID]) begin
-      bcond[`BEQ ] <= op_id==`BRANCH &&         pre_rrs1  ==         pre_rrs2;
-      bcond[`BNE ] <= op_id==`BRANCH &&         pre_rrs1  !=         pre_rrs2;
-      bcond[`BLT ] <= op_id==`BRANCH && $signed(pre_rrs1) <  $signed(pre_rrs2);
-      bcond[`BGE ] <= op_id==`BRANCH && $signed(pre_rrs1) >= $signed(pre_rrs2);
-      bcond[`BLTU] <= op_id==`BRANCH &&         pre_rrs1  <          pre_rrs2;
-      bcond[`BGEU] <= op_id==`BRANCH &&         pre_rrs1  >=         pre_rrs2;
+      if(OPCODE(ir[ID])==`BRANCH) begin
+        bcond[`BEQ ] <=         pre_rrs1  ==         pre_rrs2;
+        bcond[`BNE ] <=         pre_rrs1  !=         pre_rrs2;
+        bcond[`BLT ] <= $signed(pre_rrs1) <  $signed(pre_rrs2);
+        bcond[`BGE ] <= $signed(pre_rrs1) >= $signed(pre_rrs2);
+        bcond[`BLTU] <=         pre_rrs1  <          pre_rrs2;
+        bcond[`BGEU] <=         pre_rrs1  >=         pre_rrs2;
+      end else begin
+        bcond[`BGEU:`BEQ] <= 8'h00;
+      end
 
-      bcond[BC_JAL  ] <= op_id==`JAL;
-      bcond[BC_JALR ] <= op_id==`JALR;
-      bcond[BC_ECALL] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
-      bcond[BC_MRET ] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+      bcond[BC_JAL  ] <= OPCODE(ir[ID])==`JAL;
+      bcond[BC_JALR ] <= OPCODE(ir[ID])==`JALR;
+      bcond[BC_ECALL] <= OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
+      bcond[BC_MRET ] <= OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
     end else begin
       // When (bflush || insertb[ID]) is true, ir[EM] will be `NOP.
       // bcond should be deasserted so as to sync the state with ir[EM].
