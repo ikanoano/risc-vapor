@@ -53,6 +53,7 @@ module PROCESSOR (
   // Program Counters for each stage
   reg [32-1:0]  pc_if_no_bpred=0;
   reg [32-1:0]  pc[IF:WB];
+  wire[32-1:0]  pc_if = pc[IF]; // tmp for debug
   assign  pc_disp = pc[WB];
 
   always @(posedge clk) pc_if_no_bpred <=
@@ -61,7 +62,7 @@ module PROCESSOR (
     stall[IF]                 ? pc[IF]      :
                                 pc[IF]+4;
   always @(*)           pc[IF] =  // combinational
-    bptaken[ID]               ? bptarget_id :
+    bptaken[ID]               ? bptarget_id   :
                                 pc_if_no_bpred;
   always @(posedge clk) pc[ID] <= // sequential
     rst                       ? `BOOT       :
@@ -81,9 +82,8 @@ module PROCESSOR (
   reg [32-1:0]  ir[ID:WB];
   always @(*)           ir[ID]  = // combinational
     rst                       ? `NOP        :
-    prev_bflush               ? `NOP        :
+    bflush_reading_inst       ? `NOP        :
     prev_insertb[IF]          ? `NOP        :
-    bflush_reading_inst        ? `NOP        :
                                 imem_rdata;
   always @(posedge clk) ir[EM] <= // sequential
     rst                       ? `NOP        :
@@ -311,13 +311,13 @@ module PROCESSOR (
   );
   always @(*) begin
     bptaken[ID] =
-      rst               ? 1'b0  :
-      prev_bflush       ? 1'b0  :
-      prev_insertb[IF]  ? 1'b0  :
-                          bptaken_id;
+      rst                 ? 1'b0  :
+      bflush_reading_inst ? 1'b0  :
+      prev_insertb[IF]    ? 1'b0  :
+                            bptaken_id;
     bpdata[ID]  =
-      rst               ? 2'b00 :
-                          bpdata_id;
+      rst                 ? 2'b00 :
+                            bpdata_id;
   end
   integer j;
   always @(posedge clk) begin
