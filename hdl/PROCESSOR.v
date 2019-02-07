@@ -119,6 +119,7 @@ module PROCESSOR (
   assign  stall_req[IF] = 1'b0;
 
   // Instruction Decode stage ========================================
+  wire[ 5-1:0]  op_id = OPCODE(ir[ID]);
   wire[32-1:0]  pre_rrs1, pre_rrs2, rrs1, rrs2, rrd;
   GPR gpr(
     .clk(clk),
@@ -138,27 +139,27 @@ module PROCESSOR (
   );
 
   // predetermine branch condition
-  localparam[3-1:0]
-    BC_BRNCH=3'd0, BC_JAL=3'd1, BC_JALR=3'd2, BC_ECALL=3'd3, BC_MRET=3'd4;
-  reg [BC_MRET:BC_BRNCH]  bcond=0;
+  // bcond[7:0] is for branch instruction, [12:9] is for others like jal and mret.
+  localparam[4-1:0] BC_JAL=4'd9, BC_JALR=4'd10, BC_ECALL=4'd11, BC_MRET=4'd12;
+  reg [16-1:0]  bcond=16'h00;
   reg [32-1:0]  btarget_jal, btarget_jalr, btarget_branch;
   always @(posedge clk) if(!stall[EM]) begin
     if(!bflush && !insertb[ID]) begin
-      bcond[BC_BRNCH] <= OPCODE(ir[ID])==`BRANCH && (
-        (FUNCT3(ir[ID])==`BEQ  &&         pre_rrs1  ==         pre_rrs2 ) ||
-        (FUNCT3(ir[ID])==`BNE  &&         pre_rrs1  !=         pre_rrs2 ) ||
-        (FUNCT3(ir[ID])==`BLT  && $signed(pre_rrs1) <  $signed(pre_rrs2)) ||
-        (FUNCT3(ir[ID])==`BGE  && $signed(pre_rrs1) >= $signed(pre_rrs2)) ||
-        (FUNCT3(ir[ID])==`BLTU &&         pre_rrs1  <          pre_rrs2 ) ||
-        (FUNCT3(ir[ID])==`BGEU &&         pre_rrs1  >=         pre_rrs2));
-      bcond[BC_JAL  ] <= OPCODE(ir[ID])==`JAL;
-      bcond[BC_JALR ] <= OPCODE(ir[ID])==`JALR;
-      bcond[BC_ECALL] <= ir[ID]==`ECALL;
-      bcond[BC_MRET ] <= ir[ID]==`MRET;
+      bcond[`BEQ ] <= op_id==`BRANCH &&         pre_rrs1  ==         pre_rrs2;
+      bcond[`BNE ] <= op_id==`BRANCH &&         pre_rrs1  !=         pre_rrs2;
+      bcond[`BLT ] <= op_id==`BRANCH && $signed(pre_rrs1) <  $signed(pre_rrs2);
+      bcond[`BGE ] <= op_id==`BRANCH && $signed(pre_rrs1) >= $signed(pre_rrs2);
+      bcond[`BLTU] <= op_id==`BRANCH &&         pre_rrs1  <          pre_rrs2;
+      bcond[`BGEU] <= op_id==`BRANCH &&         pre_rrs1  >=         pre_rrs2;
+
+      bcond[BC_JAL  ] <= op_id==`JAL;
+      bcond[BC_JALR ] <= op_id==`JALR;
+      bcond[BC_ECALL] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
+      bcond[BC_MRET ] <= op_id==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
     end else begin
       // When (bflush || insertb[ID]) is true, ir[EM] will be `NOP.
       // bcond should be deasserted so as to sync the state with ir[EM].
-      bcond <= 0;
+      bcond <= 16'h0;
     end
     btarget_jal   <= pc[ID]   +JIMM(ir[ID]);
     btarget_jalr  <= pre_rrs1 +IIMM(ir[ID]);
@@ -226,12 +227,12 @@ module PROCESSOR (
 
   // branch
   assign  btarget = ~32'h1 & (
-    bcond[BC_BRNCH]   ? btarget_branch  :
-    bcond[BC_JAL]     ? btarget_jal     :
-    bcond[BC_JALR]    ? btarget_jalr    :
-    bcond[BC_ECALL]   ? mtvec & ~32'b11 : // don't support vectored trap address
-    bcond[BC_MRET]    ? mepc            :
-                        pc[EM]+4);
+    bcond[FUNCT3(ir[EM])] ? btarget_branch  :
+    bcond[BC_JAL]         ? btarget_jal     :
+    bcond[BC_JALR]        ? btarget_jalr    :
+    bcond[BC_ECALL]       ? mtvec & ~32'b11 : // don't support vectored trap address
+    bcond[BC_MRET]        ? mepc            :
+                            pc[EM]+4);
   assign  btaken  = |bcond;
   wire    bpmiss  = bptaken[EM] != btaken;
   // flush if (branch prediction miss) or (btb was not updated)
