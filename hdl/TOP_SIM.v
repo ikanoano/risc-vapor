@@ -96,6 +96,7 @@ module TOP_SIM ();
       while(rst)  @(posedge clk);
       repeat(16)  @(posedge clk);
       prog_we   = 1'b1;
+      $dumpoff;
       for(i=0; i<2**IMAGESCALE; i=i+1) begin
         if(!i[0+:10]) begin
           $write(" %3dk(h%6x,%b)", i>>10, n4.pl.waddr, n4.pl.DONE);
@@ -106,6 +107,7 @@ module TOP_SIM ();
         prog_data = fdata[16+:8]; @(posedge prog_ready); @(posedge clk);
         prog_data = fdata[ 8+:8]; @(posedge prog_ready); @(posedge clk);
         prog_data = fdata[ 0+:8]; @(posedge prog_ready); @(posedge clk);
+        if(i==(2**IMAGESCALE)-(2**4)) $dumpon;
       end
       prog_we   = 1'b0;
       while(!n4.pl.DONE) begin
