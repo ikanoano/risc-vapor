@@ -224,7 +224,7 @@ module TOP_SIM ();
   reg [32*8-1:0]  stallstr;
   reg [128*8-1:0] str_em="";
   reg [32*8-1:0]  wbstr;
-  always @(posedge clk) if(TRACE && !rst) begin : trace
+  always @(posedge clk) if(TRACE && !n4.rst_proc) begin : trace
     stall   = n4.p.stall;
     if(|stall)      $sformat(stallstr, "s(b%b)", stall);
     else            stallstr = "";
