@@ -30,9 +30,9 @@ module TOP_NEXYS4DDR (
 );
   localparam  integer MEM_SCALE       = 27;
   // Params for detemining frequency - Refer the summary tab in clocking wizard
-  localparam  integer DIVIDE_COUNTER  = 5;
-  localparam  real    MULT_COUNTER    = 50.250;
-  localparam  real    DEVIDER_VALUE1  = 8.375;
+  localparam  integer DIVIDE_COUNTER  = 1;  //5;
+  localparam  real    MULT_COUNTER    = 10; //50.250;
+  localparam  real    DEVIDER_VALUE1  = 10; //8.375;
   localparam  real    CPU_FREQ_F= 100000000.0/DIVIDE_COUNTER*MULT_COUNTER/DEVIDER_VALUE1;
   localparam  integer CPU_FREQ  = CPU_FREQ_F;
 
