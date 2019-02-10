@@ -15,10 +15,11 @@ module PLOADER #(
   input   wire        RX_VALID
 );
     reg [31:0] waddr; // memory write address
+    reg [ 7:0] done_cnt=0;
 
     always @(posedge CLK) begin
         if(!RST_X) begin
-            {ADDR, INITDATA, WE, waddr, DONE} <= 0;
+            {ADDR, INITDATA, WE, waddr, DONE, done_cnt} <= 0;
         end else begin
             if(DONE==0 && RX_VALID) begin
                 ADDR  <= waddr & ~32'h3;
@@ -28,7 +29,10 @@ module PLOADER #(
                 waddr <= waddr + 1;
             end else begin
                 WE <= 0;
-                if(waddr>=PROG_SIZE) DONE <= 1;
+                // NOTE: WE can be asserted after waddr>=PROG_SIZE is true,
+                // if uart rx is very very fast.
+                if(waddr>=PROG_SIZE && !done_cnt[7]) done_cnt <= done_cnt+8'd1;
+                if(done_cnt[7]) DONE <= 1;
             end
         end
     end
