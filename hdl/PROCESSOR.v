@@ -101,7 +101,7 @@ module PROCESSOR (
   // Instruction Fetch stage ========================================
   // imem I/F
   assign  imem_addr   = pc[IF];
-  assign  imem_oe     = !rst && !stall[IF];
+  assign  imem_oe     = (~rst) & (~stall[IF]);
 
   reg     imem_reading = 1'b0;
   wire    imem_miss    = imem_reading && !imem_valid;
