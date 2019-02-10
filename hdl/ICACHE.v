@@ -82,7 +82,7 @@ module ICACHE #(
   // stat
   always @(posedge clk) begin
     ic_cnt_hit    <= rst ? 32'b0 : ic_cnt_hit    + (prev_oe&valid);
-    ic_cnt_access <= rst ? 32'b0 : ic_cnt_access + oe;
+    ic_cnt_access <= rst ? 32'b0 : ic_cnt_access +  prev_oe;
   end
 
   function[WIDTH_TAG-1:0]  TAG(input[MEM_SCALE-1:0] a);

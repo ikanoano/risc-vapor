@@ -139,8 +139,8 @@ module DCACHE #(
 
   // stat
   always @(posedge clk) begin
-    dc_cnt_hit    <= rst ? 32'b0 : dc_cnt_hit + (prev_oe[0]&&!prev_we[0]&&valid);
-    dc_cnt_access <= rst ? 32'b0 : dc_cnt_access + (oe[0] && !we[0]);
+    dc_cnt_hit    <= rst ? 32'b0 : dc_cnt_hit +    (prev_oe[0]&&!prev_we[0]&&valid);
+    dc_cnt_access <= rst ? 32'b0 : dc_cnt_access + (prev_oe[0]&&!prev_we[0]);
   end
 
   always @(posedge clk) begin
