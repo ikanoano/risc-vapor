@@ -60,7 +60,7 @@ module DCACHE #(
     oe[0] && we[0]  ? 1'b1 :
     written         ? 1'b0 :
                       writing;
-  assign  busy  = reading || writing || oe[0];
+  assign  busy  = reading | writing | oe[0];
 
   RAM #(
     .SCALE(SCALE)
@@ -68,7 +68,7 @@ module DCACHE #(
     .clk(clk),
     .rst(rst),
 
-    .oe0(oe[0] || reading),
+    .oe0(oe[0] | reading),
     .addr0(oe[0] ? addr[0+:SCALE] : last_addr[0+:SCALE]),
     .wdata0(wdata),
     .we0(we),
@@ -101,17 +101,17 @@ module DCACHE #(
     .we0(1'b0),
     .rdata0({rvalid, rtag}),
 
-    .oe1(|wvalid_add || clear),
+    .oe1(|wvalid_add | clear),
     .addr1(clear ? clear_addr : vta_waddr[2+:SCALE-2]),
     .wdata1({clear ? 4'h0 : wvalid, wtag}),
-    .we1(|wvalid_add || clear),
+    .we1(|wvalid_add | clear),
     .rdata1()
   );
 
   // Confirm that the cache was hit, then load data if necessary.
   // valid is eventually asserted when not hit but load is completed.
   wire[4-1:0] hvalid = last_oe << last_addr[1:0];
-  assign  valid = (hvalid&rvalid)==hvalid && TAG(last_addr)==rtag && reading;
+  assign  valid = (hvalid&rvalid)==hvalid & TAG(last_addr)==rtag & reading;
   reg     loading=1'b0;
   always @(posedge clk) loading <=
     rst                       ? 1'b0 :
@@ -120,8 +120,8 @@ module DCACHE #(
                               loading;
 
   // load and write through
-  //                                  load                 ||  write
-  assign  super_oe    = (prev_oe[0] && !valid && !loading) || |prev_we;
+  //                                  load               ||  write
+  assign  super_oe    = (prev_oe[0] & !valid & !loading) | |prev_we;
   assign  super_addr  = // To load 4byte, mask 2bit LSB if load.
     {last_addr[2+:MEM_SCALE-2], prev_we[0] ? last_addr[0+:2] : 2'b00};
   assign  super_wdata = last_wdata;
@@ -139,8 +139,8 @@ module DCACHE #(
 
   // stat
   always @(posedge clk) begin
-    dc_cnt_hit    <= rst ? 32'b0 : dc_cnt_hit +    (prev_oe[0]&&!prev_we[0]&&valid);
-    dc_cnt_access <= rst ? 32'b0 : dc_cnt_access + (prev_oe[0]&&!prev_we[0]);
+    dc_cnt_hit    <= rst ? 32'b0 : dc_cnt_hit +    (prev_oe[0]&!prev_we[0]&valid);
+    dc_cnt_access <= rst ? 32'b0 : dc_cnt_access + (prev_oe[0]&!prev_we[0]);
   end
 
   always @(posedge clk) begin

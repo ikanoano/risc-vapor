@@ -47,8 +47,8 @@ module DRAM_ARBITER #(
   localparam[1:0]     S_IDLE=2'd0, S_IMEM=2'd1, S_DMEM=2'd2;
   reg [1:0]           state=S_IDLE;
   always @(posedge clk) begin
-    ivalid    <= !rst && state==S_IMEM && dram_valid;
-    dvalid    <= !rst && state==S_DMEM && dram_valid;
+    ivalid    <= !rst & (state==S_IMEM) & dram_valid;
+    dvalid    <= !rst & (state==S_DMEM) & dram_valid;
     irdata    <= dram_rdata;
     drdata    <= dram_rdata;
 

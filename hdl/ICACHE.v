@@ -60,15 +60,15 @@ module ICACHE #(
     .we0(1'b0),
     .rdata0({ic_valid, ic_tag, ic_inst}),
 
-    .oe1(super_valid || clear),
+    .oe1(super_valid | clear),
     .addr1(clear ? clear_addr : last_addr[0+:SCALE]),
     .wdata1({~clear, TAG(last_addr), clear ? `NOP : super_rdata}),
-    .we1(super_valid || clear),
+    .we1(super_valid | clear),
     .rdata1()
   );
 
   assign  rdata   = ic_inst;
-  assign  valid   = ic_valid && reading && (ic_tag == TAG(last_addr));
+  assign  valid   = ic_valid & reading & (ic_tag == TAG(last_addr));
 
   reg     loading=1'b0;
   always @(posedge clk) loading <=
@@ -77,7 +77,7 @@ module ICACHE #(
     super_valid ? 1'b0 :
                   loading;
   assign  super_addr  = last_addr;
-  assign  super_oe    = prev_oe && !valid && !loading;
+  assign  super_oe    = prev_oe & !valid & !loading;
 
   // stat
   always @(posedge clk) begin

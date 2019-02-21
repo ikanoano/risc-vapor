@@ -104,7 +104,7 @@ module PROCESSOR (
   assign  imem_oe     = (~rst) & (~stall[IF]);
 
   reg     imem_reading = 1'b0;
-  wire    imem_miss    = imem_reading && !imem_valid;
+  wire    imem_miss    = imem_reading & !imem_valid;
   always @(posedge clk) imem_reading <=
     rst         ? 1'b0 :
     imem_oe     ? 1'b1 :
@@ -157,8 +157,8 @@ module PROCESSOR (
 
       bcond[BC_JAL  ] <= OPCODE(ir[ID])==`JAL;
       bcond[BC_JALR ] <= OPCODE(ir[ID])==`JALR;
-      bcond[BC_ECALL] <= OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 && !ir[ID][21];
-      bcond[BC_MRET ] <= OPCODE(ir[ID])==`SYSTEM && FUNCT3(ir[ID])==3'h0 &&  ir[ID][21];
+      bcond[BC_ECALL] <= OPCODE(ir[ID])==`SYSTEM & FUNCT3(ir[ID])==3'h0 & !ir[ID][21];
+      bcond[BC_MRET ] <= OPCODE(ir[ID])==`SYSTEM & FUNCT3(ir[ID])==3'h0 &  ir[ID][21];
     end else begin
       // When (bflush || insertb[ID]) is true, ir[EM] will be `NOP.
       // bcond should be deasserted so as to sync the state with ir[EM].
@@ -171,10 +171,10 @@ module PROCESSOR (
 
   // stall if (ir[ID] is not ready) || (pre_rrs1 or pre_rrs2 is not ready but used)
   // TUNE: deal with the case where rs2 or rs1 is not used
-  assign  stall_req[ID] = imem_miss || (
-    GPRWE(ir[EM]) &&
-    (RS1(ir[ID])==RD(ir[EM]) || RS2(ir[ID])==RD(ir[EM])) &&
-    (OPCODE(ir[ID])==`BRANCH || OPCODE(ir[ID])==`JALR)  // they use pre_rrs1,2
+  assign  stall_req[ID] = imem_miss | (
+    GPRWE(ir[EM]) &
+    (RS1(ir[ID])==RD(ir[EM]) | RS2(ir[ID])==RD(ir[EM])) &
+    (OPCODE(ir[ID])==`BRANCH | OPCODE(ir[ID])==`JALR)  // they use pre_rrs1,2
   );
 
   // Execute and Memory access stage ========================================
@@ -223,8 +223,8 @@ module PROCESSOR (
   reg [DSEL_C:DSEL_M] dsel;
   always @(posedge clk) if(!stall[WB]) begin
     dsel[DSEL_M]  <= OPCODE(ir[EM])==`LOAD;
-    dsel[DSEL_U]  <= OPCODE(ir[EM])==`AUIPC   || OPCODE(ir[EM])==`LUI;
-    dsel[DSEL_J]  <= OPCODE(ir[EM])==`JALR    || OPCODE(ir[EM])==`JAL;
+    dsel[DSEL_U]  <= OPCODE(ir[EM])==`AUIPC   | OPCODE(ir[EM])==`LUI;
+    dsel[DSEL_J]  <= OPCODE(ir[EM])==`JALR    | OPCODE(ir[EM])==`JAL;
     dsel[DSEL_C]  <= OPCODE(ir[EM])==`SYSTEM;
   end
 
@@ -239,7 +239,7 @@ module PROCESSOR (
   assign  btaken  = |bcond;
   wire    bpmiss  = bptaken[EM] != btaken;
   // flush if (branch prediction miss) or (btb was not updated)
-  assign  bflush  = (bpmiss || (btaken && pc[ID]!=btarget)) && !stall[EM];
+  assign  bflush  = (bpmiss | (btaken & pc[ID]!=btarget)) & !stall[EM];
 
   // mem I/F
   wire[32-1:0] pre_mem_addr   = rrs1_fwd + (ir[EM][5] ? SIMM(ir[EM]) : IIMM(ir[EM]));
@@ -252,9 +252,9 @@ module PROCESSOR (
   always @(posedge clk) mem_we    <= pre_mem_we;
   initial {mem_addr, mem_oe, mem_wdata, mem_we} = 0;
 
-  wire          mem_read      = pre_mem_oe[0] && !pre_mem_we[0];
+  wire          mem_read      = pre_mem_oe[0] & !pre_mem_we[0];
   reg           mem_reading   = 1'b0;
-  wire          mem_miss      = mem_reading && !mem_valid;
+  wire          mem_miss      = mem_reading & !mem_valid;
   always @(posedge clk) mem_reading <=
     rst         ? 1'b0 :
     mem_read    ? 1'b1 :

@@ -34,7 +34,7 @@ module BIMODAL_PREDICTOR #(
   end
   wire    bp_valid  = prev_bp_pc[2+SCALE+:WIDTH_TAG]==bicounter_rdata[2+:WIDTH_TAG];
   assign  bp_data   = bicounter_rdata[1:0];
-  assign  bp_taken  = bp_data[1] && bp_valid;
+  assign  bp_taken  = bp_data[1] & bp_valid;
 
   // feedback
   wire[ 2-1:0] bcincdec =

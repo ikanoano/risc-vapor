@@ -53,7 +53,7 @@ module MMIO #(
     end else begin
       unread <= unread | rx_valid;
     end
-    tx_we <= oe[0] && we[0] && addr[0+:16]==`MMIO_TO_HOST;// assert for only 1 cycle
+    tx_we <= oe[0] & we[0] & (addr[0+:16]==`MMIO_TO_HOST);// assert for only 1 cycle
 
     // read
     if(oe[0] && !we[0]) begin
