@@ -107,7 +107,7 @@ module MIG_BLOCK (
   input   wire[0:0]   S_AXI_arlock,
   input   wire[2:0]   S_AXI_arprot,
   input   wire[3:0]   S_AXI_arqos,
-  output  wire        S_AXI_arready,
+  output  reg         S_AXI_arready,
   input   wire[3:0]   S_AXI_arregion,
   input   wire[2:0]   S_AXI_arsize,
   input   wire        S_AXI_arvalid,
@@ -119,23 +119,23 @@ module MIG_BLOCK (
   input   wire[0:0]   S_AXI_awlock,
   input   wire[2:0]   S_AXI_awprot,
   input   wire[3:0]   S_AXI_awqos,
-  output  wire        S_AXI_awready,
+  output  reg         S_AXI_awready,
   input   wire[3:0]   S_AXI_awregion,
   input   wire[2:0]   S_AXI_awsize,
   input   wire        S_AXI_awvalid,
   output  wire[0:0]   S_AXI_bid,
   input   wire        S_AXI_bready,
-  output  wire[1:0]   S_AXI_bresp,
-  output  wire        S_AXI_bvalid,
-  output  wire[127:0] S_AXI_rdata,
+  output  reg [1:0]   S_AXI_bresp,
+  output  reg         S_AXI_bvalid,
+  output  reg [127:0] S_AXI_rdata,
   output  wire[0:0]   S_AXI_rid,
   output  wire        S_AXI_rlast,
   input   wire        S_AXI_rready,
-  output  wire[1:0]   S_AXI_rresp,
-  output  wire        S_AXI_rvalid,
+  output  reg [1:0]   S_AXI_rresp,
+  output  reg         S_AXI_rvalid,
   input   wire[127:0] S_AXI_wdata,
   input   wire        S_AXI_wlast,
-  output  wire        S_AXI_wready,
+  output  reg         S_AXI_wready,
   input   wire[15:0]  S_AXI_wstrb,
   input   wire        S_AXI_wvalid,
   output  wire        calib_done,
@@ -199,14 +199,19 @@ module MIG_BLOCK (
 
   // I/O Connections assignments
 
-  assign S_AXI_awready  = axi_awready;
-  assign S_AXI_wready = axi_wready;
-  assign S_AXI_bresp  = axi_bresp;
-  assign S_AXI_bvalid = axi_bvalid;
-  assign S_AXI_arready  = axi_arready;
-  assign S_AXI_rdata  = axi_rdata;
-  assign S_AXI_rresp  = axi_rresp;
-  assign S_AXI_rvalid = axi_rvalid;
+  always @* if(axi_awready) S_AXI_awready   <= #125 axi_awready;
+            else            S_AXI_awready   <=      axi_awready;
+  always @* if(axi_wready ) S_AXI_wready    <= #125 axi_wready;
+            else            S_AXI_wready    <=      axi_wready;
+  always @*                 S_AXI_bresp     <= #425 axi_bresp;
+  always @* if(axi_bvalid ) S_AXI_bvalid    <= #425 axi_bvalid;
+            else            S_AXI_bvalid    <=      axi_bvalid;
+  always @* if(axi_arready) S_AXI_arready   <= #125 axi_arready;
+            else            S_AXI_arready   <=      axi_arready;
+  always @*                 S_AXI_rdata     <= #925 axi_rdata;
+  always @*                 S_AXI_rresp     <= #925 axi_rresp;
+  always @* if(axi_rvalid ) S_AXI_rvalid    <= #925 axi_rvalid;
+            else            S_AXI_rvalid    <=      axi_rvalid;
   // Implement axi_awready generation
   // axi_awready is asserted for one clk_axi clock cycle when both
   // S_AXI_awvalid and S_AXI_wvalid are asserted. axi_awready is
