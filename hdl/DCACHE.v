@@ -32,13 +32,13 @@ module DCACHE #(
 );
   localparam WIDTH_TAG = MEM_SCALE-SCALE;
 
-  reg [        4-1:0] prev_oe;
-  reg [        4-1:0] prev_we;
-  reg [        4-1:0] last_oe;
+  reg [        4-1:0] prev_oe=4'h0;
+  reg [        4-1:0] prev_we=4'h0;
+  reg [        4-1:0] last_oe=4'h0;
   reg [MEM_SCALE-1:0] last_addr=0;
-  reg [       32-1:0] last_wdata;
-  always @(posedge clk) prev_oe <= oe;
-  always @(posedge clk) prev_we <= oe & we;
+  reg [       32-1:0] last_wdata=0;
+  always @(posedge clk) prev_oe <= rst ? 4'h0 : oe;
+  always @(posedge clk) prev_we <= rst ? 4'h0 : oe & we;
 
   always @(posedge clk) if(oe[0]) last_oe     <= oe;
   always @(posedge clk) if(oe[0]) last_addr   <= addr;

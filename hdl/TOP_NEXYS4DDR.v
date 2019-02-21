@@ -250,8 +250,8 @@ module TOP_NEXYS4DDR (
     .dram_wdata   (dram_wdata),
     .dram_we      (dram_we),
     .dram_rdata   (dram_rdata),
-    .dram_valid   (dram_valid),
-    .dram_written (dram_written)
+    .dram_valid   (init_done & dram_valid),
+    .dram_written (init_done & dram_written)
   );
 
   // program loader

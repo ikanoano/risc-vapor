@@ -26,9 +26,9 @@ module ICACHE #(
 );
   localparam WIDTH_TAG = MEM_SCALE-SCALE;
 
-  reg                 prev_oe;
+  reg                 prev_oe=1'b0;
   reg [MEM_SCALE-1:0] last_addr=0;
-  always @(posedge clk) prev_oe <= oe;
+  always @(posedge clk) prev_oe <= rst ? 1'b0 : oe;
   always @(posedge clk) if(oe) last_addr <= addr;
 
   reg [SCALE-1:0]  clear_addr=0;
